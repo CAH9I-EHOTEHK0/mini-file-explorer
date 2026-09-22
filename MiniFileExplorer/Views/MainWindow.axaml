@@ -16,7 +16,7 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, Auto, *, Auto">
+    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
         <!-- Top Toolbar & Navigation -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
             <Grid ColumnDefinitions="Auto, Auto, *, Auto">
@@ -65,8 +65,29 @@
             </Grid>
         </Border>
 
+        <!-- Notification / Error Banner -->
+        <Border Grid.Row="1" 
+                IsVisible="{Binding HasBanner}"
+                Background="#3A1D1D" 
+                BorderBrush="#B22222" 
+                BorderThickness="0,0,0,1" 
+                Padding="12,6">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <TextBlock Grid.Column="0" Text="⚠️" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="{Binding BannerMessage}" Foreground="#FF9999" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <Button Grid.Column="2" 
+                        Command="{Binding DismissBannerCommand}" 
+                        Background="Transparent" 
+                        BorderThickness="0" 
+                        Padding="6,2" 
+                        VerticalAlignment="Center">
+                    <TextBlock Text="✕" Foreground="#FF9999" FontWeight="Bold" />
+                </Button>
+            </Grid>
+        </Border>
+
         <!-- Quick Drives List Bar -->
-        <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" Padding="8,4">
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" Padding="8,4">
             <ItemsControl ItemsSource="{Binding Drives}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -85,7 +106,7 @@
         </Border>
 
         <!-- Main Content Area: Files List -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <ListBox ItemsSource="{Binding Items}"
                      SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                      DoubleTapped="OnItemListDoubleTapped"
@@ -118,7 +139,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="*, Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />

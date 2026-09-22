@@ -2,6 +2,8 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -10,6 +12,14 @@ using MiniFileExplorer.Models;
 using MiniFileExplorer.Services;
 
 namespace MiniFileExplorer.ViewModels;
+
+public enum NotificationSeverity
+{
+    None,
+    Info,
+    Warning,
+    Error
+}
 
 public partial class MainViewModel : ViewModelBase
 {
@@ -40,6 +50,15 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canGoUp;
 
+    [ObservableProperty]
+    private bool _hasBanner;
+
+    [ObservableProperty]
+    private string _bannerMessage = string.Empty;
+
+    [ObservableProperty]
+    private NotificationSeverity _bannerSeverity = NotificationSeverity.None;
+
     public MainViewModel() : this(new FileSystemService())
     {
     }
@@ -67,11 +86,40 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    public void ShowBanner(string message, NotificationSeverity severity)
+    {
+        BannerMessage = message;
+        BannerSeverity = severity;
+        HasBanner = true;
+    }
+
+    [RelayCommand]
+    public void DismissBanner()
+    {
+        HasBanner = false;
+        BannerMessage = string.Empty;
+        BannerSeverity = NotificationSeverity.None;
+    }
+
     [RelayCommand]
     public async Task NavigateToAsync(string? targetPath)
     {
         if (string.IsNullOrWhiteSpace(targetPath))
+        {
+            ShowBanner("Шлях не може бути порожнім.", NotificationSeverity.Warning);
             return;
+        }
+
+        targetPath = targetPath.Trim('\"', '\'').Trim();
+
+        char[] invalidChars = Path.GetInvalidPathChars();
+        if (targetPath.IndexOfAny(invalidChars) >= 0)
+        {
+            ShowBanner($"Шлях містить неприпустимі символи: '{targetPath}'", NotificationSeverity.Error);
+            StatusMessage = "Помилка введення шляху";
+            PathInput = CurrentPath;
+            return;
+        }
 
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
@@ -79,6 +127,7 @@ public partial class MainViewModel : ViewModelBase
 
         IsLoading = true;
         StatusMessage = "Завантаження...";
+        DismissBanner();
 
         try
         {
@@ -101,19 +150,37 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (UnauthorizedAccessException)
         {
-            StatusMessage = $"Помилка: Немає доступу до '{targetPath}'";
+            ShowBanner($"Доступ заборонено: у вас немає прав для перегляду '{targetPath}'", NotificationSeverity.Error);
+            StatusMessage = "Помилка: відмовлено в доступі";
+            PathInput = CurrentPath;
         }
         catch (DirectoryNotFoundException)
         {
-            StatusMessage = $"Помилка: Каталог '{targetPath}' не знайдено";
+            ShowBanner($"Каталог не існує: '{targetPath}'", NotificationSeverity.Warning);
+            StatusMessage = "Помилка: каталог не знайдено";
+            PathInput = CurrentPath;
+        }
+        catch (PathTooLongException)
+        {
+            ShowBanner("Занадто довгий шлях до каталогу (перевищено ліміт ОС).", NotificationSeverity.Error);
+            StatusMessage = "Помилка: шлях занадто довгий";
+            PathInput = CurrentPath;
+        }
+        catch (SecurityException)
+        {
+            ShowBanner($"Помилка безпеки при доступі до '{targetPath}'", NotificationSeverity.Error);
+            StatusMessage = "Помилка безпеки";
+            PathInput = CurrentPath;
         }
         catch (OperationCanceledException)
         {
-            // Expected on fast navigation
+            // Expected when user quickly navigates to another folder
         }
         catch (Exception ex)
         {
+            ShowBanner($"Непередбачена помилка: {ex.Message}", NotificationSeverity.Error);
             StatusMessage = $"Помилка: {ex.Message}";
+            PathInput = CurrentPath;
         }
         finally
         {
@@ -142,10 +209,30 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public Task RefreshAsync()
+    public async Task RefreshAsync()
     {
         LoadDrives();
-        return NavigateToAsync(CurrentPath);
+
+        // If current directory was deleted externally, gracefully fallback to parent or user root
+        if (!_fileSystemService.DirectoryExists(CurrentPath))
+        {
+            ShowBanner($"Поточний каталог більше не існує. Повертаємось до батьківської папки.", NotificationSeverity.Warning);
+            var fallback = _fileSystemService.GetParentDirectory(CurrentPath);
+            while (!string.IsNullOrWhiteSpace(fallback) && !_fileSystemService.DirectoryExists(fallback))
+            {
+                fallback = _fileSystemService.GetParentDirectory(fallback);
+            }
+
+            if (string.IsNullOrWhiteSpace(fallback))
+            {
+                fallback = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            }
+
+            await NavigateToAsync(fallback);
+            return;
+        }
+
+        await NavigateToAsync(CurrentPath);
     }
 
     [RelayCommand]
@@ -162,6 +249,12 @@ public partial class MainViewModel : ViewModelBase
         {
             try
             {
+                if (!File.Exists(item.FullPath))
+                {
+                    ShowBanner($"Файл не знайдено: '{item.Name}'", NotificationSeverity.Warning);
+                    return;
+                }
+
                 var psi = new ProcessStartInfo
                 {
                     FileName = item.FullPath,
@@ -171,7 +264,7 @@ public partial class MainViewModel : ViewModelBase
             }
             catch (Exception ex)
             {
-                StatusMessage = $"Не вдалося відкрити файл: {ex.Message}";
+                ShowBanner($"Не вдалося запустити файл '{item.Name}': {ex.Message}", NotificationSeverity.Error);
             }
         }
     }
