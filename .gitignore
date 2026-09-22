@@ -1,55 +1,30 @@
 ﻿## Build results and artifacts
-[Dd]ebug/
-[Dd]ebugPublic/
-[Rr]elease/
-[Rr]eleases/
-x64/
-x86/
-[Aa][Rr][Mm]/
-[Aa][Rr][Mm]64/
-bld/
 [Bb]in/
 [Oo]bj/
-[Ll]og/
-[Ll]ogs/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+bld/
+[Ll]ogs?/
 
-## Visual Studio / Rider / IDE cache and preferences
-.vs/
+## JetBrains Rider / IntelliJ / VS
+**/.idea/
 .idea/
-*.suo
+**/.vs/
+.vs/
 *.user
+*.suo
 *.userosscache
 *.sln.docstates
-*.userprefs
-*.launch
-*.pidb
-*.booproj
-*.svclog
 
-## NuGet Packages
-*.nupkg
-*.snupkg
-**/packages/*
-!**/packages/build/
-*.nuget.props
-*.nuget.targets
-.nuget/
-
-## OS generated files
+## OS files
 Thumbs.db
 ehthumbs.db
-ehthumbs_vista.db
 Desktop.ini
 $RECYCLE.BIN/
 .DS_Store
-.AppleDouble
-.LSOverride
 
-## Crash / memory dumps
-*.stackdump
-*.dmp
-*.crash
-
-## Task descriptions / assignment materials
+## Task materials
 **/TaskDescription/
 TaskDescription/

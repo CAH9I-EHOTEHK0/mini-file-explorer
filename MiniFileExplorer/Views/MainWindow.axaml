@@ -1,22 +1,128 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
+        xmlns:models="using:MiniFileExplorer.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
         x:Class="MiniFileExplorer.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="MiniFileExplorer">
+        Title="Mini File Explorer"
+        Width="1000" Height="650"
+        WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <TextBox Text="{Binding Greeting}"
-             HorizontalAlignment="Center"
-             VerticalAlignment="Center" />
+    <Grid RowDefinitions="Auto, Auto, *, Auto">
+        <!-- Top Toolbar & Navigation -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
+            <Grid ColumnDefinitions="Auto, Auto, *, Auto">
+                <!-- Navigation buttons -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="0,0,8,0">
+                    <Button Command="{Binding GoUpCommand}" 
+                            IsEnabled="{Binding CanGoUp}" 
+                            ToolTip.Tip="Вгору (..)" 
+                            Padding="8,4">
+                        <TextBlock Text="⬆ Вгору" />
+                    </Button>
+                    <Button Command="{Binding RefreshCommand}" 
+                            ToolTip.Tip="Оновити" 
+                            Padding="8,4">
+                        <TextBlock Text="🔄" />
+                    </Button>
+                </StackPanel>
 
+                <!-- Drives Selector Dropdown -->
+                <ComboBox Grid.Column="1" 
+                          ItemsSource="{Binding Drives}" 
+                          SelectedItem="{Binding CurrentPath}"
+                          Width="130" Margin="0,0,8,0"
+                          PlaceholderText="Диски">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:DriveItem">
+                            <TextBlock Text="{Binding DisplayText}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <!-- Editable Address Bar -->
+                <TextBox Grid.Column="2" 
+                         Text="{Binding PathInput, Mode=TwoWay}"
+                         VerticalAlignment="Center"
+                         PlaceholderText="Введіть шлях до папки..."
+                         KeyDown="OnAddressBarKeyDown" />
+
+                <!-- Go Button -->
+                <Button Grid.Column="3" 
+                        Command="{Binding NavigateFromInputCommand}" 
+                        Margin="8,0,0,0" 
+                        Padding="12,4">
+                    <TextBlock Text="Перейти" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- Quick Drives List Bar -->
+        <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" Padding="8,4">
+            <ItemsControl ItemsSource="{Binding Drives}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:DriveItem">
+                        <Button Content="{Binding DisplayText}"
+                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).NavigateToCommand}"
+                                CommandParameter="{Binding RootDirectory}"
+                                Padding="8,2" FontSize="12" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- Main Content Area: Files List -->
+        <Grid Grid.Row="2">
+            <ListBox ItemsSource="{Binding Items}"
+                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                     DoubleTapped="OnItemListDoubleTapped"
+                     KeyDown="OnItemListKeyDown"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:FileItemViewModel">
+                        <Grid ColumnDefinitions="30, *, 120, 160" Margin="0,2">
+                            <!-- Icon / Glyph -->
+                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            
+                            <!-- Name -->
+                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                            
+                            <!-- Size -->
+                            <TextBlock Grid.Column="2" Text="{Binding FormattedSize}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                            
+                            <!-- Modified Date -->
+                            <TextBlock Grid.Column="3" Text="{Binding FormattedDate}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- Loading Spinner / Overlay -->
+            <ProgressBar IsIndeterminate="True" 
+                         IsVisible="{Binding IsLoading}" 
+                         VerticalAlignment="Top" 
+                         Height="4" />
+        </Grid>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />
+            </Grid>
+        </Border>
+    </Grid>
 </Window>
