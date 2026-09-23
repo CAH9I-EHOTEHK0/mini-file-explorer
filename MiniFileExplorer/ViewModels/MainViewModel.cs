@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -21,16 +22,28 @@ public enum NotificationSeverity
     Error
 }
 
+public enum SortField
+{
+    Name,
+    Type,
+    Size,
+    Date
+}
+
 public partial class MainViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
     private CancellationTokenSource? _loadCts;
+    private readonly List<FileItemViewModel> _allItems = new();
 
     [ObservableProperty]
     private string _currentPath = string.Empty;
 
     [ObservableProperty]
     private string _pathInput = string.Empty;
+
+    [ObservableProperty]
+    private string _filterQuery = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<DriveItem> _drives = new();
@@ -59,6 +72,17 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private NotificationSeverity _bannerSeverity = NotificationSeverity.None;
 
+    [ObservableProperty]
+    private SortField _currentSortField = SortField.Name;
+
+    [ObservableProperty]
+    private bool _sortAscending = true;
+
+    public string NameSortIndicator => CurrentSortField == SortField.Name ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+    public string TypeSortIndicator => CurrentSortField == SortField.Type ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+    public string SizeSortIndicator => CurrentSortField == SortField.Size ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+    public string DateSortIndicator => CurrentSortField == SortField.Date ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+
     public MainViewModel() : this(new FileSystemService())
     {
     }
@@ -75,6 +99,31 @@ public partial class MainViewModel : ViewModelBase
         }
 
         _ = NavigateToAsync(initialDir);
+    }
+
+    partial void OnFilterQueryChanged(string value)
+    {
+        ApplyFilterAndSort();
+    }
+
+    partial void OnCurrentSortFieldChanged(SortField value)
+    {
+        NotifySortIndicators();
+        ApplyFilterAndSort();
+    }
+
+    partial void OnSortAscendingChanged(bool value)
+    {
+        NotifySortIndicators();
+        ApplyFilterAndSort();
+    }
+
+    private void NotifySortIndicators()
+    {
+        OnPropertyChanged(nameof(NameSortIndicator));
+        OnPropertyChanged(nameof(TypeSortIndicator));
+        OnPropertyChanged(nameof(SizeSortIndicator));
+        OnPropertyChanged(nameof(DateSortIndicator));
     }
 
     private void LoadDrives()
@@ -99,6 +148,29 @@ public partial class MainViewModel : ViewModelBase
         HasBanner = false;
         BannerMessage = string.Empty;
         BannerSeverity = NotificationSeverity.None;
+    }
+
+    [RelayCommand]
+    public void ClearFilter()
+    {
+        FilterQuery = string.Empty;
+    }
+
+    [RelayCommand]
+    public void ToggleSort(string fieldName)
+    {
+        if (Enum.TryParse<SortField>(fieldName, true, out var field))
+        {
+            if (CurrentSortField == field)
+            {
+                SortAscending = !SortAscending;
+            }
+            else
+            {
+                CurrentSortField = field;
+                SortAscending = true;
+            }
+        }
     }
 
     [RelayCommand]
@@ -140,13 +212,13 @@ public partial class MainViewModel : ViewModelBase
             PathInput = targetPath;
             CanGoUp = _fileSystemService.GetParentDirectory(targetPath) != null;
 
-            Items.Clear();
+            _allItems.Clear();
             foreach (var item in rawItems)
             {
-                Items.Add(new FileItemViewModel(item, _fileSystemService));
+                _allItems.Add(new FileItemViewModel(item, _fileSystemService));
             }
 
-            StatusMessage = $"Елементів: {Items.Count}";
+            ApplyFilterAndSort();
         }
         catch (UnauthorizedAccessException)
         {
@@ -174,7 +246,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Expected when user quickly navigates to another folder
+            // Expected on fast navigation
         }
         catch (Exception ex)
         {
@@ -189,6 +261,73 @@ public partial class MainViewModel : ViewModelBase
                 IsLoading = false;
             }
         }
+    }
+
+    private void ApplyFilterAndSort()
+    {
+        var parentItem = _allItems.FirstOrDefault(x => x.Name == "..");
+        var query = FilterQuery.Trim();
+
+        IEnumerable<FileItemViewModel> filtered = _allItems.Where(x => x.Name != "..");
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            filtered = filtered.Where(x => 
+                x.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(x.Extension) && x.Extension.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
+        }
+
+        // Folder-first rule: directories always sorted together above files
+        var dirs = filtered.Where(x => x.IsDirectory);
+        var files = filtered.Where(x => !x.IsDirectory);
+
+        dirs = SortCollection(dirs);
+        files = SortCollection(files);
+
+        Items.Clear();
+
+        // ".." always stays first if present and not filtering (or even when filtering)
+        if (parentItem != null && string.IsNullOrWhiteSpace(query))
+        {
+            Items.Add(parentItem);
+        }
+
+        foreach (var dir in dirs)
+        {
+            Items.Add(dir);
+        }
+
+        foreach (var file in files)
+        {
+            Items.Add(file);
+        }
+
+        var filterInfo = string.IsNullOrWhiteSpace(query) ? string.Empty : $" (знайдено: {Items.Count(x => x.Name != "..")})";
+        StatusMessage = $"Елементів: {_allItems.Count(x => x.Name != "..")}{filterInfo}";
+    }
+
+    private IEnumerable<FileItemViewModel> SortCollection(IEnumerable<FileItemViewModel> source)
+    {
+        return CurrentSortField switch
+        {
+            SortField.Name => SortAscending
+                ? source.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
+                : source.OrderByDescending(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
+
+            SortField.Type => SortAscending
+                ? source.OrderBy(x => x.Extension ?? string.Empty, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name)
+                : source.OrderByDescending(x => x.Extension ?? string.Empty, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name),
+
+            SortField.Size => SortAscending
+                ? source.OrderBy(x => x.SizeBytes ?? 0).ThenBy(x => x.Name)
+                : source.OrderByDescending(x => x.SizeBytes ?? 0).ThenBy(x => x.Name),
+
+            SortField.Date => SortAscending
+                ? source.OrderBy(x => x.ModifiedDate ?? DateTime.MinValue).ThenBy(x => x.Name)
+                : source.OrderByDescending(x => x.ModifiedDate ?? DateTime.MinValue).ThenBy(x => x.Name),
+
+            _ => source
+        };
     }
 
     [RelayCommand]
@@ -213,7 +352,6 @@ public partial class MainViewModel : ViewModelBase
     {
         LoadDrives();
 
-        // If current directory was deleted externally, gracefully fallback to parent or user root
         if (!_fileSystemService.DirectoryExists(CurrentPath))
         {
             ShowBanner($"Поточний каталог більше не існує. Повертаємось до батьківської папки.", NotificationSeverity.Warning);
