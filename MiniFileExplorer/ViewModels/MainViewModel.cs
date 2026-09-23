@@ -34,6 +34,7 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
     private CancellationTokenSource? _loadCts;
+    private CancellationTokenSource? _sizeCalcCts;
     private readonly List<FileItemViewModel> _allItems = new();
 
     [ObservableProperty]
@@ -59,6 +60,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isLoading;
+
+    [ObservableProperty]
+    private bool _isCalculatingFolderSizes;
 
     [ObservableProperty]
     private bool _canGoUp;
@@ -174,6 +178,71 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public async Task CalculateFolderSizesAsync()
+    {
+        _sizeCalcCts?.Cancel();
+        _sizeCalcCts = new CancellationTokenSource();
+        var token = _sizeCalcCts.Token;
+
+        var directories = _allItems.Where(x => x.IsDirectory && x.Name != "..").ToList();
+        if (directories.Count == 0) return;
+
+        IsCalculatingFolderSizes = true;
+        StatusMessage = $"Обчислення розмірів папок (0/{directories.Count})...";
+
+        try
+        {
+            int completed = 0;
+            foreach (var dir in directories)
+            {
+                token.ThrowIfCancellationRequested();
+
+                dir.IsCalculatingSize = true;
+                try
+                {
+                    var size = await _fileSystemService.CalculateDirectorySizeBytesAsync(dir.FullPath, token);
+                    dir.CalculatedSizeBytes = size;
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
+                catch
+                {
+                    dir.CalculatedSizeBytes = null;
+                }
+                finally
+                {
+                    dir.IsCalculatingSize = false;
+                }
+
+                completed++;
+                StatusMessage = $"Обчислення розмірів папок ({completed}/{directories.Count})...";
+            }
+
+            if (!token.IsCancellationRequested)
+            {
+                StatusMessage = "Розміри папок обчислено";
+                if (CurrentSortField == SortField.Size)
+                {
+                    ApplyFilterAndSort();
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Cancelled when user navigates away or starts new calculation
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+            {
+                IsCalculatingFolderSizes = false;
+            }
+        }
+    }
+
+    [RelayCommand]
     public async Task NavigateToAsync(string? targetPath)
     {
         if (string.IsNullOrWhiteSpace(targetPath))
@@ -196,6 +265,10 @@ public partial class MainViewModel : ViewModelBase
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
+
+        // Cancel running folder size calculations from the previous directory
+        _sizeCalcCts?.Cancel();
+        IsCalculatingFolderSizes = false;
 
         IsLoading = true;
         StatusMessage = "Завантаження...";
@@ -286,7 +359,6 @@ public partial class MainViewModel : ViewModelBase
 
         Items.Clear();
 
-        // ".." always stays first if present and not filtering (or even when filtering)
         if (parentItem != null && string.IsNullOrWhiteSpace(query))
         {
             Items.Add(parentItem);

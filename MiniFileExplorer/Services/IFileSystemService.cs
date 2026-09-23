@@ -9,6 +9,7 @@ public interface IFileSystemService
 {
     IEnumerable<DriveItem> GetDrives();
     Task<IReadOnlyList<FileSystemItem>> GetItemsAsync(string directoryPath, CancellationToken cancellationToken = default);
+    Task<long> CalculateDirectorySizeBytesAsync(string directoryPath, CancellationToken cancellationToken = default);
     string FormatBytes(long? bytes);
     bool DirectoryExists(string path);
     string? GetParentDirectory(string path);

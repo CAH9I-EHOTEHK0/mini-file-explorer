@@ -21,13 +21,30 @@ public partial class FileItemViewModel : ViewModelBase
     public string Name => _item.Name;
     public string FullPath => _item.FullPath;
     public bool IsDirectory => _item.IsDirectory;
-    public long? SizeBytes => _item.SizeBytes;
+    public long? SizeBytes => IsDirectory ? CalculatedSizeBytes : _item.SizeBytes;
     public DateTime? ModifiedDate => _item.ModifiedDate;
     public string? Extension => _item.Extension;
 
-    public string FormattedSize => IsDirectory 
-        ? (CalculatedSizeBytes.HasValue ? _fileSystemService.FormatBytes(CalculatedSizeBytes.Value) : string.Empty)
-        : _fileSystemService.FormatBytes(SizeBytes);
+    public string FormattedSize
+    {
+        get
+        {
+            if (_item.Name == "..")
+                return string.Empty;
+
+            if (IsDirectory)
+            {
+                if (IsCalculatingSize)
+                    return "обчислення...";
+
+                return CalculatedSizeBytes.HasValue 
+                    ? _fileSystemService.FormatBytes(CalculatedSizeBytes.Value) 
+                    : string.Empty;
+            }
+
+            return _fileSystemService.FormatBytes(SizeBytes);
+        }
+    }
 
     public string FormattedDate => ModifiedDate?.ToString("yyyy-MM-dd HH:mm") ?? string.Empty;
 
@@ -42,7 +59,16 @@ public partial class FileItemViewModel : ViewModelBase
     [ObservableProperty]
     private long? _calculatedSizeBytes;
 
+    [ObservableProperty]
+    private bool _isCalculatingSize;
+
     partial void OnCalculatedSizeBytesChanged(long? value)
+    {
+        OnPropertyChanged(nameof(SizeBytes));
+        OnPropertyChanged(nameof(FormattedSize));
+    }
+
+    partial void OnIsCalculatingSizeChanged(bool value)
     {
         OnPropertyChanged(nameof(FormattedSize));
     }

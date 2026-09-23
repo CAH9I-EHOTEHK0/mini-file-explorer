@@ -138,6 +138,68 @@ public class FileSystemService : IFileSystemService
         }, cancellationToken);
     }
 
+    public Task<long> CalculateDirectorySizeBytesAsync(string directoryPath, CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() =>
+        {
+            long totalBytes = 0;
+            var queue = new Queue<string>();
+            queue.Enqueue(directoryPath);
+
+            while (queue.Count > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var currentDir = queue.Dequeue();
+
+                try
+                {
+                    var dirInfo = new DirectoryInfo(currentDir);
+
+                    // Add files size
+                    foreach (var file in dirInfo.EnumerateFiles())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            totalBytes += file.Length;
+                        }
+                        catch
+                        {
+                            // Skip inaccessible individual files
+                        }
+                    }
+
+                    // Enqueue subdirectories
+                    foreach (var subDir in dirInfo.EnumerateDirectories())
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        try
+                        {
+                            // Skip reparse points (symlinks/junctions) to prevent infinite loops
+                            if ((subDir.Attributes & FileAttributes.ReparsePoint) != 0)
+                                continue;
+
+                            queue.Enqueue(subDir.FullName);
+                        }
+                        catch
+                        {
+                            // Skip inaccessible subdirectories
+                        }
+                    }
+                }
+                catch
+                {
+                    // Skip inaccessible folders entirely
+                }
+            }
+
+            return totalBytes;
+        }, cancellationToken);
+    }
+
     public string FormatBytes(long? bytes)
     {
         if (bytes == null)
