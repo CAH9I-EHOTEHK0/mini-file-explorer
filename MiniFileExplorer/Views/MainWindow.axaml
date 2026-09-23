@@ -18,10 +18,10 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
+    <Grid RowDefinitions="Auto, Auto, *, Auto">
         <!-- Top Toolbar & Navigation -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
-            <Grid ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto, Auto">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
                 <!-- Navigation buttons -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="0,0,8,0">
                     <Button Command="{Binding GoUpCommand}" 
@@ -37,28 +37,15 @@
                     </Button>
                 </StackPanel>
 
-                <!-- Drives Selector Dropdown -->
-                <ComboBox Grid.Column="1" 
-                          ItemsSource="{Binding Drives}" 
-                          SelectedItem="{Binding CurrentPath}"
-                          Width="130" Margin="0,0,8,0"
-                          PlaceholderText="Диски">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="models:DriveItem">
-                            <TextBlock Text="{Binding DisplayText}" />
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-
                 <!-- Editable Address Bar -->
-                <TextBox Grid.Column="2" 
+                <TextBox Grid.Column="1" 
                          Text="{Binding PathInput, Mode=TwoWay}"
                          VerticalAlignment="Center"
                          PlaceholderText="Введіть шлях до папки..."
                          KeyDown="OnAddressBarKeyDown" />
 
                 <!-- Go Button -->
-                <Button Grid.Column="3" 
+                <Button Grid.Column="2" 
                         Command="{Binding NavigateFromInputCommand}" 
                         Margin="8,0,8,0" 
                         Padding="12,4">
@@ -66,7 +53,7 @@
                 </Button>
 
                 <!-- Calculate Folder Sizes Button -->
-                <Button Grid.Column="4" 
+                <Button Grid.Column="3" 
                         Command="{Binding CalculateFolderSizesCommand}" 
                         IsEnabled="{Binding !IsCalculatingFolderSizes}"
                         ToolTip.Tip="Асинхронно порахувати реальний розмір кожної папки"
@@ -79,32 +66,16 @@
                 </Button>
 
                 <!-- Toggle Preview Pane Button -->
-                <ToggleButton Grid.Column="5" 
+                <ToggleButton Grid.Column="4" 
                               IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
                               ToolTip.Tip="Показати / приховати панель попереднього перегляду"
-                              Margin="0,0,8,0" 
+                              Margin="0,0,0,0" 
                               Padding="10,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="👁" />
                         <TextBlock Text="Прев'ю" />
                     </StackPanel>
                 </ToggleButton>
-
-                <!-- In-Folder Quick Filter -->
-                <Grid Grid.Column="6" Width="180" ColumnDefinitions="*, Auto">
-                    <TextBox Grid.Column="0" 
-                             Text="{Binding FilterQuery, Mode=TwoWay}"
-                             PlaceholderText="🔍 Фільтр..."
-                             VerticalAlignment="Center" />
-                    <Button Grid.Column="1" 
-                            Command="{Binding ClearFilterCommand}"
-                            IsVisible="{Binding FilterQuery.Length}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Padding="6,4">
-                        <TextBlock Text="✕" Foreground="Gray" />
-                    </Button>
-                </Grid>
             </Grid>
         </Border>
 
@@ -129,38 +100,76 @@
             </Grid>
         </Border>
 
-        <!-- Quick Drives List Bar -->
-        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" Padding="8,4">
-            <ItemsControl ItemsSource="{Binding Drives}">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="6" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="models:DriveItem">
-                        <Button Content="{Binding DisplayText}"
-                                Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
-                                CommandParameter="{Binding RootDirectory}"
-                                Padding="8,2" FontSize="12" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-            </ItemsControl>
-        </Border>
-
-        <!-- Main Content Area: Split File List (with aligned headers) + Preview Pane -->
-        <Grid Grid.Row="3">
+        <!-- Main Content Area: Left Sidebar + Files Area + Splitter + Preview Pane -->
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200" MinWidth="140" MaxWidth="320" />
                 <ColumnDefinition Width="*" MinWidth="350" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="360" MinWidth="220" MaxWidth="800" />
+                <ColumnDefinition Width="340" MinWidth="200" MaxWidth="800" />
             </Grid.ColumnDefinitions>
 
-            <!-- Left: Files Area with Column Headers -->
-            <Grid Grid.Column="0" RowDefinitions="Auto, *">
-                <!-- Column Headers (Locked inside Left Area) -->
-                <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="12,4,20,4">
-                    <Grid ColumnDefinitions="30, *, 120, 130, 160">
+            <!-- Column 0: Left Windows-style Sidebar -->
+            <Border Grid.Column="0" 
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" 
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                    BorderThickness="0,0,1,0" 
+                    Padding="4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Spacing="10">
+                        <!-- Quick Access Section -->
+                        <TextBlock Text="ШВИДКИЙ ДОСТУП" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,6,8,2" />
+                        <ItemsControl ItemsSource="{Binding QuickAccessItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SidebarItemViewModel">
+                                    <Button Background="Transparent" 
+                                            HorizontalAlignment="Stretch" 
+                                            HorizontalContentAlignment="Left"
+                                            Padding="8,6" 
+                                            Margin="2,1"
+                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
+                                            CommandParameter="{Binding Path}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Drives Section -->
+                        <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,10,8,2" />
+                        <ItemsControl ItemsSource="{Binding DriveSidebarItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SidebarItemViewModel">
+                                    <Button Background="Transparent" 
+                                            HorizontalAlignment="Stretch" 
+                                            HorizontalContentAlignment="Left"
+                                            Padding="8,6" 
+                                            Margin="2,1"
+                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
+                                            CommandParameter="{Binding Path}">
+                                        <Grid ColumnDefinitions="Auto, *">
+                                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="Gray" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Button>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+
+            <!-- Column 1: Files Area with Column Headers and Filter -->
+            <Grid Grid.Column="1" RowDefinitions="Auto, *">
+                <!-- Column Headers & Quick Filter Bar -->
+                <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="12,4,12,4">
+                    <Grid ColumnDefinitions="30, *, 120, 130, 160, 160">
                         <TextBlock Grid.Column="0" Text="" />
                         
                         <!-- Sort by Name -->
@@ -214,10 +223,28 @@
                                 <Run Text="Дата зміни" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
                             </TextBlock>
                         </Button>
+
+                        <!-- In-Folder Quick Filter -->
+                        <Grid Grid.Column="5" Margin="8,0,0,0" ColumnDefinitions="*, Auto">
+                            <TextBox Grid.Column="0" 
+                                     Text="{Binding FilterQuery, Mode=TwoWay}" 
+                                     PlaceholderText="🔍 Фільтр..." 
+                                     Padding="6,2" 
+                                     FontSize="11" 
+                                     VerticalAlignment="Center" />
+                            <Button Grid.Column="1" 
+                                    Command="{Binding ClearFilterCommand}" 
+                                    IsVisible="{Binding FilterQuery.Length}" 
+                                    Background="Transparent" 
+                                    BorderThickness="0" 
+                                    Padding="4,2">
+                                <TextBlock Text="✕" Foreground="Gray" FontSize="10" />
+                            </Button>
+                        </Grid>
                     </Grid>
                 </Border>
 
-                <!-- Files List -->
+                <!-- Files List with Right-Click Context Menu -->
                 <Grid Grid.Row="1">
                     <ListBox ItemsSource="{Binding Items}"
                              SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
@@ -227,6 +254,30 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:FileItemViewModel">
                                 <Grid ColumnDefinitions="30, *, 120, 130, 160" Margin="0,2">
+                                    <!-- Context Menu on Right Click -->
+                                    <Grid.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="📂 Відкрити" 
+                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).OpenItemCommand, FallbackValue={x:Null}}" 
+                                                      CommandParameter="{Binding}" 
+                                                      InputGesture="Enter" />
+                                            <Separator />
+                                            <MenuItem Header="📋 Копіювати як шлях" 
+                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).CopyPathCommand, FallbackValue={x:Null}}" 
+                                                      CommandParameter="{Binding}" 
+                                                      InputGesture="Ctrl+Shift+C" />
+                                            <Separator />
+                                            <MenuItem Header="🗑 Видалити" 
+                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).DeleteItemCommand, FallbackValue={x:Null}}" 
+                                                      CommandParameter="{Binding}" 
+                                                      InputGesture="Delete" />
+                                            <Separator />
+                                            <MenuItem Header="ℹ Властивості" 
+                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).ShowPropertiesCommand, FallbackValue={x:Null}}" 
+                                                      CommandParameter="{Binding}" />
+                                        </ContextMenu>
+                                    </Grid.ContextMenu>
+
                                     <!-- Icon / Glyph -->
                                     <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                     
@@ -254,15 +305,15 @@
                 </Grid>
             </Grid>
 
-            <!-- Splitter between files and preview -->
-            <GridSplitter Grid.Column="1" 
+            <!-- Column 2: Splitter between files and preview -->
+            <GridSplitter Grid.Column="2" 
                           Width="5" 
                           Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
                           IsVisible="{Binding IsPreviewPaneVisible}" 
                           ResizeDirection="Columns" />
 
-            <!-- Right: Preview Pane -->
-            <Border Grid.Column="2" 
+            <!-- Column 3: Preview Pane -->
+            <Border Grid.Column="3" 
                     IsVisible="{Binding IsPreviewPaneVisible}"
                     Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -336,7 +387,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="*, Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />

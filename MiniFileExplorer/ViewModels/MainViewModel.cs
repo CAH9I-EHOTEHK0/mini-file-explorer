@@ -7,6 +7,8 @@ using System.Linq;
 using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
+using Avalonia.Input.Platform;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiniFileExplorer.Models;
@@ -46,6 +48,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _filterQuery = string.Empty;
+
+    [ObservableProperty]
+    private ObservableCollection<SidebarItemViewModel> _quickAccessItems = new();
+
+    [ObservableProperty]
+    private ObservableCollection<SidebarItemViewModel> _driveSidebarItems = new();
 
     [ObservableProperty]
     private ObservableCollection<DriveItem> _drives = new();
@@ -103,6 +111,7 @@ public partial class MainViewModel : ViewModelBase
         _fileSystemService = fileSystemService;
         _preview = new FilePreviewViewModel(_fileSystemService);
 
+        InitSidebar();
         LoadDrives();
 
         var initialDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -112,6 +121,29 @@ public partial class MainViewModel : ViewModelBase
         }
 
         _ = NavigateToAsync(initialDir);
+    }
+
+    private void InitSidebar()
+    {
+        QuickAccessItems.Clear();
+
+        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var desktop = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        var documents = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        var pictures = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
+        var downloads = Path.Combine(userProfile, "Downloads");
+
+        if (_fileSystemService.DirectoryExists(desktop))
+            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Робочий стіл", Path = desktop, IconGlyph = "🖥", IsDrive = false });
+
+        if (_fileSystemService.DirectoryExists(downloads))
+            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Завантаження", Path = downloads, IconGlyph = "📥", IsDrive = false });
+
+        if (_fileSystemService.DirectoryExists(documents))
+            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Документи", Path = documents, IconGlyph = "📄", IsDrive = false });
+
+        if (_fileSystemService.DirectoryExists(pictures))
+            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Зображення", Path = pictures, IconGlyph = "🖼", IsDrive = false });
     }
 
     partial void OnSelectedItemChanged(FileItemViewModel? value)
@@ -162,9 +194,24 @@ public partial class MainViewModel : ViewModelBase
     private void LoadDrives()
     {
         Drives.Clear();
+        DriveSidebarItems.Clear();
+
         foreach (var drive in _fileSystemService.GetDrives())
         {
             Drives.Add(drive);
+
+            string subtitle = drive.TotalSize > 0 
+                ? $"{_fileSystemService.FormatBytes(drive.AvailableFreeSpace)} вільно з {_fileSystemService.FormatBytes(drive.TotalSize)}"
+                : string.Empty;
+
+            DriveSidebarItems.Add(new SidebarItemViewModel
+            {
+                Name = drive.Name,
+                Path = drive.RootDirectory,
+                IconGlyph = "💾",
+                Subtitle = subtitle,
+                IsDrive = true
+            });
         }
     }
 
@@ -371,6 +418,70 @@ public partial class MainViewModel : ViewModelBase
                 IsLoading = false;
             }
         }
+    }
+
+    [RelayCommand]
+    public async Task CopyPathAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item == null) return;
+
+        try
+        {
+            var clipboard = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow?.Clipboard
+                : null;
+
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(item.FullPath);
+                ShowBanner($"Шлях скопійовано: {item.FullPath}", NotificationSeverity.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Не вдалося скопіювати шлях: {ex.Message}", NotificationSeverity.Warning);
+        }
+    }
+
+    [RelayCommand]
+    public async Task DeleteItemAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item == null || item.Name == "..") return;
+
+        try
+        {
+            if (item.IsDirectory)
+            {
+                Directory.Delete(item.FullPath, true);
+            }
+            else
+            {
+                File.Delete(item.FullPath);
+            }
+
+            ShowBanner($"Видалено: {item.Name}", NotificationSeverity.Info);
+            await RefreshAsync();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            ShowBanner($"Не вдалося видалити '{item.Name}': відмовлено в доступі", NotificationSeverity.Error);
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Помилка видалення: {ex.Message}", NotificationSeverity.Error);
+        }
+    }
+
+    [RelayCommand]
+    public void ShowProperties(FileItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item == null || item.Name == "..") return;
+
+        string info = $"{item.Name} | Тип: {item.TypeDescription} | Розмір: {item.FormattedSize} | Змінено: {item.FormattedDate}";
+        ShowBanner(info, NotificationSeverity.Info);
     }
 
     private void ApplyFilterAndSort()

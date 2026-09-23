@@ -53,5 +53,13 @@ public partial class MainWindow : Window
                 e.Handled = true;
             }
         }
+        else if (e.Key == Key.Delete)
+        {
+            if (vm.SelectedItem != null)
+            {
+                vm.DeleteItemCommand.Execute(vm.SelectedItem);
+                e.Handled = true;
+            }
+        }
     }
 }
