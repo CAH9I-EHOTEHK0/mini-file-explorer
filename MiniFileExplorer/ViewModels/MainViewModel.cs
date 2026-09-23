@@ -35,6 +35,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly IFileSystemService _fileSystemService;
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _sizeCalcCts;
+    private CancellationTokenSource? _previewCts;
     private readonly List<FileItemViewModel> _allItems = new();
 
     [ObservableProperty]
@@ -54,6 +55,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private FileItemViewModel? _selectedItem;
+
+    [ObservableProperty]
+    private FilePreviewViewModel _preview;
+
+    [ObservableProperty]
+    private bool _isPreviewPaneVisible = true;
 
     [ObservableProperty]
     private string _statusMessage = "Готово";
@@ -94,6 +101,8 @@ public partial class MainViewModel : ViewModelBase
     public MainViewModel(IFileSystemService fileSystemService)
     {
         _fileSystemService = fileSystemService;
+        _preview = new FilePreviewViewModel(_fileSystemService);
+
         LoadDrives();
 
         var initialDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -103,6 +112,26 @@ public partial class MainViewModel : ViewModelBase
         }
 
         _ = NavigateToAsync(initialDir);
+    }
+
+    partial void OnSelectedItemChanged(FileItemViewModel? value)
+    {
+        if (!IsPreviewPaneVisible)
+            return;
+
+        _previewCts?.Cancel();
+        _previewCts = new CancellationTokenSource();
+        _ = Preview.LoadPreviewAsync(value, _previewCts.Token);
+    }
+
+    partial void OnIsPreviewPaneVisibleChanged(bool value)
+    {
+        if (value && SelectedItem != null)
+        {
+            _previewCts?.Cancel();
+            _previewCts = new CancellationTokenSource();
+            _ = Preview.LoadPreviewAsync(SelectedItem, _previewCts.Token);
+        }
     }
 
     partial void OnFilterQueryChanged(string value)
@@ -152,6 +181,12 @@ public partial class MainViewModel : ViewModelBase
         HasBanner = false;
         BannerMessage = string.Empty;
         BannerSeverity = NotificationSeverity.None;
+    }
+
+    [RelayCommand]
+    public void TogglePreviewPane()
+    {
+        IsPreviewPaneVisible = !IsPreviewPaneVisible;
     }
 
     [RelayCommand]
@@ -231,7 +266,7 @@ public partial class MainViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            // Cancelled when user navigates away or starts new calculation
+            // Cancelled
         }
         finally
         {
@@ -266,9 +301,11 @@ public partial class MainViewModel : ViewModelBase
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
 
-        // Cancel running folder size calculations from the previous directory
         _sizeCalcCts?.Cancel();
         IsCalculatingFolderSizes = false;
+
+        _previewCts?.Cancel();
+        Preview.Reset();
 
         IsLoading = true;
         StatusMessage = "Завантаження...";
@@ -350,7 +387,6 @@ public partial class MainViewModel : ViewModelBase
                 (!string.IsNullOrWhiteSpace(x.Extension) && x.Extension.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
         }
 
-        // Folder-first rule: directories always sorted together above files
         var dirs = filtered.Where(x => x.IsDirectory);
         var files = filtered.Where(x => !x.IsDirectory);
 

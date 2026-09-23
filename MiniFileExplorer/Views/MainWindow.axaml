@@ -4,22 +4,24 @@
         xmlns:models="using:MiniFileExplorer.Models"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="950" d:DesignHeight="600"
+        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
         x:Class="MiniFileExplorer.Views.MainWindow"
+        x:Name="MainWindowRoot"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="Mini File Explorer"
-        Width="1050" Height="680"
+        Width="1150" Height="700"
+        MinWidth="700" MinHeight="450"
         WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, Auto, Auto, Auto, *, Auto">
+    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
         <!-- Top Toolbar & Navigation -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
-            <Grid ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto">
+            <Grid ColumnDefinitions="Auto, Auto, *, Auto, Auto, Auto, Auto">
                 <!-- Navigation buttons -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="0,0,8,0">
                     <Button Command="{Binding GoUpCommand}" 
@@ -72,15 +74,27 @@
                         Padding="10,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="📊" />
-                        <TextBlock Text="{Binding IsCalculatingFolderSizes, Converter={x:Null}, FallbackValue='Розміри папок'}" />
+                        <TextBlock Text="Розміри папок" />
                     </StackPanel>
                 </Button>
 
+                <!-- Toggle Preview Pane Button -->
+                <ToggleButton Grid.Column="5" 
+                              IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
+                              ToolTip.Tip="Показати / приховати панель попереднього перегляду"
+                              Margin="0,0,8,0" 
+                              Padding="10,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="👁" />
+                        <TextBlock Text="Прев'ю" />
+                    </StackPanel>
+                </ToggleButton>
+
                 <!-- In-Folder Quick Filter -->
-                <Grid Grid.Column="5" Width="200" ColumnDefinitions="*, Auto">
+                <Grid Grid.Column="6" Width="180" ColumnDefinitions="*, Auto">
                     <TextBox Grid.Column="0" 
                              Text="{Binding FilterQuery, Mode=TwoWay}"
-                             PlaceholderText="🔍 Фільтр у папці..."
+                             PlaceholderText="🔍 Фільтр..."
                              VerticalAlignment="Center" />
                     <Button Grid.Column="1" 
                             Command="{Binding ClearFilterCommand}"
@@ -126,7 +140,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="models:DriveItem">
                         <Button Content="{Binding DisplayText}"
-                                Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).NavigateToCommand}"
+                                Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
                                 CommandParameter="{Binding RootDirectory}"
                                 Padding="8,2" FontSize="12" />
                     </DataTemplate>
@@ -134,103 +148,195 @@
             </ItemsControl>
         </Border>
 
-        <!-- Column Headers (Clickable for Sorting) -->
-        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,4">
-            <Grid ColumnDefinitions="30, *, 120, 130, 160">
-                <TextBlock Grid.Column="0" Text="" />
-                
-                <!-- Sort by Name -->
-                <Button Grid.Column="1" 
-                        Command="{Binding ToggleSortCommand}" 
-                        CommandParameter="Name" 
-                        Background="Transparent" 
-                        BorderThickness="0" 
-                        Padding="4,2" 
-                        HorizontalAlignment="Left">
-                    <TextBlock FontWeight="SemiBold">
-                        <Run Text="Назва" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" />
-                    </TextBlock>
-                </Button>
+        <!-- Main Content Area: Split File List (with aligned headers) + Preview Pane -->
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="350" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="360" MinWidth="220" MaxWidth="800" />
+            </Grid.ColumnDefinitions>
 
-                <!-- Sort by Type -->
-                <Button Grid.Column="2" 
-                        Command="{Binding ToggleSortCommand}" 
-                        CommandParameter="Type" 
-                        Background="Transparent" 
-                        BorderThickness="0" 
-                        Padding="4,2" 
-                        HorizontalAlignment="Left">
-                    <TextBlock FontWeight="SemiBold">
-                        <Run Text="Тип" /><Run Text="{Binding TypeSortIndicator}" Foreground="DodgerBlue" />
-                    </TextBlock>
-                </Button>
+            <!-- Left: Files Area with Column Headers -->
+            <Grid Grid.Column="0" RowDefinitions="Auto, *">
+                <!-- Column Headers (Locked inside Left Area) -->
+                <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="12,4,20,4">
+                    <Grid ColumnDefinitions="30, *, 120, 130, 160">
+                        <TextBlock Grid.Column="0" Text="" />
+                        
+                        <!-- Sort by Name -->
+                        <Button Grid.Column="1" 
+                                Command="{Binding ToggleSortCommand}" 
+                                CommandParameter="Name" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="4,2" 
+                                HorizontalAlignment="Left">
+                            <TextBlock FontWeight="SemiBold">
+                                <Run Text="Назва" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" />
+                            </TextBlock>
+                        </Button>
 
-                <!-- Sort by Size -->
-                <Button Grid.Column="3" 
-                        Command="{Binding ToggleSortCommand}" 
-                        CommandParameter="Size" 
-                        Background="Transparent" 
-                        BorderThickness="0" 
-                        Padding="4,2" 
-                        HorizontalAlignment="Right">
-                    <TextBlock FontWeight="SemiBold">
-                        <Run Text="Розмір" /><Run Text="{Binding SizeSortIndicator}" Foreground="DodgerBlue" />
-                    </TextBlock>
-                </Button>
+                        <!-- Sort by Type -->
+                        <Button Grid.Column="2" 
+                                Command="{Binding ToggleSortCommand}" 
+                                CommandParameter="Type" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="4,2" 
+                                HorizontalAlignment="Left">
+                            <TextBlock FontWeight="SemiBold">
+                                <Run Text="Тип" /><Run Text="{Binding TypeSortIndicator}" Foreground="DodgerBlue" />
+                            </TextBlock>
+                        </Button>
 
-                <!-- Sort by Date -->
-                <Button Grid.Column="4" 
-                        Command="{Binding ToggleSortCommand}" 
-                        CommandParameter="Date" 
-                        Background="Transparent" 
-                        BorderThickness="0" 
-                        Padding="4,2" 
-                        HorizontalAlignment="Right">
-                    <TextBlock FontWeight="SemiBold">
-                        <Run Text="Дата зміни" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
-                    </TextBlock>
-                </Button>
+                        <!-- Sort by Size -->
+                        <Button Grid.Column="3" 
+                                Command="{Binding ToggleSortCommand}" 
+                                CommandParameter="Size" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="4,2" 
+                                HorizontalAlignment="Right">
+                            <TextBlock FontWeight="SemiBold">
+                                <Run Text="Розмір" /><Run Text="{Binding SizeSortIndicator}" Foreground="DodgerBlue" />
+                            </TextBlock>
+                        </Button>
+
+                        <!-- Sort by Date -->
+                        <Button Grid.Column="4" 
+                                Command="{Binding ToggleSortCommand}" 
+                                CommandParameter="Date" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="4,2" 
+                                HorizontalAlignment="Right">
+                            <TextBlock FontWeight="SemiBold">
+                                <Run Text="Дата зміни" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
+                            </TextBlock>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <!-- Files List -->
+                <Grid Grid.Row="1">
+                    <ListBox ItemsSource="{Binding Items}"
+                             SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                             DoubleTapped="OnItemListDoubleTapped"
+                             KeyDown="OnItemListKeyDown"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:FileItemViewModel">
+                                <Grid ColumnDefinitions="30, *, 120, 130, 160" Margin="0,2">
+                                    <!-- Icon / Glyph -->
+                                    <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                    
+                                    <!-- Name -->
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                                    
+                                    <!-- Type -->
+                                    <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+
+                                    <!-- Size -->
+                                    <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                                    
+                                    <!-- Modified Date -->
+                                    <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Loading Spinner / Overlay -->
+                    <ProgressBar IsIndeterminate="True" 
+                                 IsVisible="{Binding IsLoading}" 
+                                 VerticalAlignment="Top" 
+                                 Height="4" />
+                </Grid>
             </Grid>
-        </Border>
 
-        <!-- Main Content Area: Files List -->
-        <Grid Grid.Row="4">
-            <ListBox ItemsSource="{Binding Items}"
-                     SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                     DoubleTapped="OnItemListDoubleTapped"
-                     KeyDown="OnItemListKeyDown"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="vm:FileItemViewModel">
-                        <Grid ColumnDefinitions="30, *, 120, 130, 160" Margin="0,2">
-                            <!-- Icon / Glyph -->
-                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                            
-                            <!-- Name -->
-                            <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
-                            
-                            <!-- Type -->
-                            <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+            <!-- Splitter between files and preview -->
+            <GridSplitter Grid.Column="1" 
+                          Width="5" 
+                          Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                          IsVisible="{Binding IsPreviewPaneVisible}" 
+                          ResizeDirection="Columns" />
 
-                            <!-- Size -->
-                            <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
-                            
-                            <!-- Modified Date -->
-                            <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
+            <!-- Right: Preview Pane -->
+            <Border Grid.Column="2" 
+                    IsVisible="{Binding IsPreviewPaneVisible}"
+                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1,0,0,0">
+                
+                <Grid RowDefinitions="Auto, Auto, *">
+                    <!-- Preview Header -->
+                    <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" Padding="10,8" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1">
+                        <Grid ColumnDefinitions="Auto, *">
+                            <TextBlock Grid.Column="0" Text="{Binding Preview.IconGlyph}" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Preview.Title}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Preview.FileSizeInfo}" Foreground="Gray" FontSize="12" />
+                            </StackPanel>
                         </Grid>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                    </Border>
 
-            <!-- Loading Spinner / Overlay -->
-            <ProgressBar IsIndeterminate="True" 
-                         IsVisible="{Binding IsLoading}" 
-                         VerticalAlignment="Top" 
-                         Height="4" />
+                    <!-- Preview Loading indicator -->
+                    <ProgressBar Grid.Row="1" IsIndeterminate="True" IsVisible="{Binding Preview.IsLoading}" Height="2" />
+
+                    <!-- Content Body -->
+                    <Grid Grid.Row="2" Margin="10">
+                        <!-- Empty State -->
+                        <TextBlock Text="Виберіть файл для перегляду"
+                                   IsVisible="{Binding Preview.IsEmpty}"
+                                   Foreground="Gray"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+
+                        <!-- Folder State -->
+                        <StackPanel IsVisible="{Binding Preview.IsFolder}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
+                            <TextBlock Text="📁" FontSize="48" HorizontalAlignment="Center" />
+                            <TextBlock Text="Папка файлової системи" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Preview.FilePath}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" MaxWidth="280" HorizontalAlignment="Center" TextAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Text / Code Preview -->
+                        <ScrollViewer IsVisible="{Binding Preview.IsText}" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                            <TextBox Text="{Binding Preview.TextContent}" 
+                                     IsReadOnly="True" 
+                                     FontFamily="Consolas, Cascadia Code, Courier New, monospace" 
+                                     FontSize="12" 
+                                     Background="Transparent" 
+                                     BorderThickness="0" 
+                                     TextWrapping="NoWrap" />
+                        </ScrollViewer>
+
+                        <!-- Image Preview -->
+                        <Grid IsVisible="{Binding Preview.IsImage}" RowDefinitions="*, Auto">
+                            <Image Grid.Row="0" Source="{Binding Preview.ImagePreview}" Stretch="Uniform" />
+                            <TextBlock Grid.Row="1" Text="{Binding Preview.ImageDimensions}" Foreground="Gray" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                        </Grid>
+
+                        <!-- Binary / Other File Card -->
+                        <Border IsVisible="{Binding Preview.IsBinary}" VerticalAlignment="Center" HorizontalAlignment="Center" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="16" MaxWidth="280">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="⚙" FontSize="40" HorizontalAlignment="Center" />
+                                <TextBlock Text="{Binding Preview.Title}" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" />
+                                <Separator Height="1" Background="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+                                <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto">
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Розмір: " Foreground="Gray" FontSize="12" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Preview.FileSizeInfo}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Змінено: " Foreground="Gray" FontSize="12" Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Preview.ModifiedDateInfo}" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+            </Border>
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="5" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="*, Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />
