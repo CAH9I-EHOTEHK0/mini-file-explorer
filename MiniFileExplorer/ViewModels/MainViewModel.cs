@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -25,34 +24,24 @@ public enum NotificationSeverity
     Error
 }
 
-public enum SortField
-{
-    Name,
-    Type,
-    Size,
-    Date
-}
-
 public partial class MainViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
     private readonly ISearchService _searchService;
-
-    private CancellationTokenSource? _loadCts;
-    private CancellationTokenSource? _sizeCalcCts;
-    private CancellationTokenSource? _previewCts;
     private CancellationTokenSource? _searchCts;
-
-    private readonly List<FileItemViewModel> _allItems = new();
-
-    [ObservableProperty]
-    private string _currentPath = string.Empty;
+    private CancellationTokenSource? _previewCts;
 
     [ObservableProperty]
-    private string _pathInput = string.Empty;
+    private FilePaneViewModel _leftPane;
 
     [ObservableProperty]
-    private string _filterQuery = string.Empty;
+    private FilePaneViewModel _rightPane;
+
+    [ObservableProperty]
+    private FilePaneViewModel _activePane;
+
+    [ObservableProperty]
+    private bool _isDualPaneMode;
 
     [ObservableProperty]
     private string _searchQuery = string.Empty;
@@ -73,31 +62,10 @@ public partial class MainViewModel : ViewModelBase
     private ObservableCollection<SidebarItemViewModel> _driveSidebarItems = new();
 
     [ObservableProperty]
-    private ObservableCollection<DriveItem> _drives = new();
-
-    [ObservableProperty]
-    private ObservableCollection<FileItemViewModel> _items = new();
-
-    [ObservableProperty]
-    private FileItemViewModel? _selectedItem;
-
-    [ObservableProperty]
     private FilePreviewViewModel _preview;
 
     [ObservableProperty]
     private bool _isPreviewPaneVisible = true;
-
-    [ObservableProperty]
-    private string _statusMessage = "Готово";
-
-    [ObservableProperty]
-    private bool _isLoading;
-
-    [ObservableProperty]
-    private bool _isCalculatingFolderSizes;
-
-    [ObservableProperty]
-    private bool _canGoUp;
 
     [ObservableProperty]
     private bool _hasBanner;
@@ -108,16 +76,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private NotificationSeverity _bannerSeverity = NotificationSeverity.None;
 
-    [ObservableProperty]
-    private SortField _currentSortField = SortField.Name;
-
-    [ObservableProperty]
-    private bool _sortAscending = true;
-
-    public string NameSortIndicator => CurrentSortField == SortField.Name ? (SortAscending ? " ▲" : " ▼") : string.Empty;
-    public string TypeSortIndicator => CurrentSortField == SortField.Type ? (SortAscending ? " ▲" : " ▼") : string.Empty;
-    public string SizeSortIndicator => CurrentSortField == SortField.Size ? (SortAscending ? " ▲" : " ▼") : string.Empty;
-    public string DateSortIndicator => CurrentSortField == SortField.Date ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+    public string CurrentPath => ActivePane.CurrentPath;
 
     public MainViewModel() : this(new FileSystemService(), new SearchService())
     {
@@ -129,6 +88,13 @@ public partial class MainViewModel : ViewModelBase
         _searchService = searchService;
         _preview = new FilePreviewViewModel(_fileSystemService);
 
+        _leftPane = new FilePaneViewModel(_fileSystemService) { IsActive = true };
+        _rightPane = new FilePaneViewModel(_fileSystemService) { IsActive = false };
+        _activePane = _leftPane;
+
+        WirePaneEvents(_leftPane);
+        WirePaneEvents(_rightPane);
+
         InitSidebar();
         LoadDrives();
 
@@ -138,7 +104,145 @@ public partial class MainViewModel : ViewModelBase
             initialDir = Directory.GetCurrentDirectory();
         }
 
-        _ = NavigateToAsync(initialDir);
+        _ = _leftPane.NavigateToAsync(initialDir);
+        _ = _rightPane.NavigateToAsync(initialDir);
+    }
+
+    private void WirePaneEvents(FilePaneViewModel pane)
+    {
+        pane.OnNotification += (msg, sev) => ShowBanner(msg, sev);
+        pane.OnSelectionChanged += item =>
+        {
+            if (pane == ActivePane && IsPreviewPaneVisible)
+            {
+                _previewCts?.Cancel();
+                _previewCts = new CancellationTokenSource();
+                _ = Preview.LoadPreviewAsync(item, _previewCts.Token);
+            }
+        };
+    }
+
+    public void SetActivePane(FilePaneViewModel pane)
+    {
+        if (ActivePane == pane) return;
+
+        LeftPane.IsActive = (pane == LeftPane);
+        RightPane.IsActive = (pane == RightPane);
+        ActivePane = pane;
+
+        OnPropertyChanged(nameof(CurrentPath));
+
+        if (IsPreviewPaneVisible && pane.SelectedItem != null)
+        {
+            _previewCts?.Cancel();
+            _previewCts = new CancellationTokenSource();
+            _ = Preview.LoadPreviewAsync(pane.SelectedItem, _previewCts.Token);
+        }
+    }
+
+    [RelayCommand]
+    public void ToggleDualPaneMode()
+    {
+        IsDualPaneMode = !IsDualPaneMode;
+        if (IsDualPaneMode)
+        {
+            // Sync or keep independent
+            if (string.IsNullOrWhiteSpace(RightPane.CurrentPath))
+            {
+                _ = RightPane.NavigateToAsync(LeftPane.CurrentPath);
+            }
+        }
+        else
+        {
+            SetActivePane(LeftPane);
+        }
+    }
+
+    [RelayCommand]
+    public void SwapActivePane()
+    {
+        if (!IsDualPaneMode) return;
+        SetActivePane(ActivePane == LeftPane ? RightPane : LeftPane);
+    }
+
+    [RelayCommand]
+    public async Task CopyBetweenPanesAsync()
+    {
+        if (!IsDualPaneMode) return;
+
+        var sourcePane = ActivePane;
+        var targetPane = (ActivePane == LeftPane) ? RightPane : LeftPane;
+
+        var item = sourcePane.SelectedItem;
+        if (item == null || item.Name == "..") return;
+
+        string destPath = Path.Combine(targetPane.CurrentPath, item.Name);
+
+        try
+        {
+            if (item.IsDirectory)
+            {
+                CopyDirectoryRecursive(item.FullPath, destPath);
+            }
+            else
+            {
+                File.Copy(item.FullPath, destPath, overwrite: true);
+            }
+
+            ShowBanner($"Скопійовано '{item.Name}' у {targetPane.CurrentPath}", NotificationSeverity.Info);
+            await targetPane.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Помилка копіювання: {ex.Message}", NotificationSeverity.Error);
+        }
+    }
+
+    [RelayCommand]
+    public async Task MoveBetweenPanesAsync()
+    {
+        if (!IsDualPaneMode) return;
+
+        var sourcePane = ActivePane;
+        var targetPane = (ActivePane == LeftPane) ? RightPane : LeftPane;
+
+        var item = sourcePane.SelectedItem;
+        if (item == null || item.Name == "..") return;
+
+        string destPath = Path.Combine(targetPane.CurrentPath, item.Name);
+
+        try
+        {
+            if (item.IsDirectory)
+            {
+                Directory.Move(item.FullPath, destPath);
+            }
+            else
+            {
+                File.Move(item.FullPath, destPath, overwrite: true);
+            }
+
+            ShowBanner($"Переміщено '{item.Name}' у {targetPane.CurrentPath}", NotificationSeverity.Info);
+            await sourcePane.RefreshAsync();
+            await targetPane.RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Помилка переміщення: {ex.Message}", NotificationSeverity.Error);
+        }
+    }
+
+    private static void CopyDirectoryRecursive(string sourceDir, string targetDir)
+    {
+        Directory.CreateDirectory(targetDir);
+        foreach (var file in Directory.GetFiles(sourceDir))
+        {
+            File.Copy(file, Path.Combine(targetDir, Path.GetFileName(file)), true);
+        }
+        foreach (var sub in Directory.GetDirectories(sourceDir))
+        {
+            CopyDirectoryRecursive(sub, Path.Combine(targetDir, Path.GetFileName(sub)));
+        }
     }
 
     private void InitSidebar()
@@ -164,60 +268,12 @@ public partial class MainViewModel : ViewModelBase
             QuickAccessItems.Add(new SidebarItemViewModel { Name = "Зображення", Path = pictures, IconGlyph = "🖼", IsDrive = false });
     }
 
-    partial void OnSelectedItemChanged(FileItemViewModel? value)
-    {
-        if (!IsPreviewPaneVisible)
-            return;
-
-        _previewCts?.Cancel();
-        _previewCts = new CancellationTokenSource();
-        _ = Preview.LoadPreviewAsync(value, _previewCts.Token);
-    }
-
-    partial void OnIsPreviewPaneVisibleChanged(bool value)
-    {
-        if (value && SelectedItem != null)
-        {
-            _previewCts?.Cancel();
-            _previewCts = new CancellationTokenSource();
-            _ = Preview.LoadPreviewAsync(SelectedItem, _previewCts.Token);
-        }
-    }
-
-    partial void OnFilterQueryChanged(string value)
-    {
-        ApplyFilterAndSort();
-    }
-
-    partial void OnCurrentSortFieldChanged(SortField value)
-    {
-        NotifySortIndicators();
-        ApplyFilterAndSort();
-    }
-
-    partial void OnSortAscendingChanged(bool value)
-    {
-        NotifySortIndicators();
-        ApplyFilterAndSort();
-    }
-
-    private void NotifySortIndicators()
-    {
-        OnPropertyChanged(nameof(NameSortIndicator));
-        OnPropertyChanged(nameof(TypeSortIndicator));
-        OnPropertyChanged(nameof(SizeSortIndicator));
-        OnPropertyChanged(nameof(DateSortIndicator));
-    }
-
     private void LoadDrives()
     {
-        Drives.Clear();
         DriveSidebarItems.Clear();
 
         foreach (var drive in _fileSystemService.GetDrives())
         {
-            Drives.Add(drive);
-
             string subtitle = drive.TotalSize > 0 
                 ? $"{_fileSystemService.FormatBytes(drive.AvailableFreeSpace)} вільно з {_fileSystemService.FormatBytes(drive.TotalSize)}"
                 : string.Empty;
@@ -255,12 +311,6 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void ClearFilter()
-    {
-        FilterQuery = string.Empty;
-    }
-
-    [RelayCommand]
     public async Task StartSearchAsync()
     {
         if (string.IsNullOrWhiteSpace(SearchQuery))
@@ -270,22 +320,17 @@ public partial class MainViewModel : ViewModelBase
         _searchCts = new CancellationTokenSource();
         var token = _searchCts.Token;
 
-        _sizeCalcCts?.Cancel();
-        IsCalculatingFolderSizes = false;
-
         IsSearchMode = true;
         IsSearching = true;
-        SearchStatusText = $"Пошук '{SearchQuery}' у {CurrentPath}...";
+        SearchStatusText = $"Пошук '{SearchQuery}' у {ActivePane.CurrentPath}...";
 
-        _allItems.Clear();
-        Items.Clear();
+        ActivePane.ClearDirectly();
 
         var progress = new Progress<SearchProgressReport>(r =>
         {
             Dispatcher.UIThread.Post(() =>
             {
                 SearchStatusText = $"Сканування: {r.ScannedFiles:N0} файлів, {r.ScannedFolders:N0} папок | Знайдено: {r.MatchesCount}";
-                StatusMessage = $"Знайдено збігів: {r.MatchesCount}";
             });
         });
 
@@ -296,7 +341,7 @@ public partial class MainViewModel : ViewModelBase
 
             await Task.Run(async () =>
             {
-                await foreach (var match in _searchService.SearchAsync(CurrentPath, SearchQuery, progress, token))
+                await foreach (var match in _searchService.SearchAsync(ActivePane.CurrentPath, SearchQuery, progress, token))
                 {
                     token.ThrowIfCancellationRequested();
 
@@ -306,7 +351,6 @@ public partial class MainViewModel : ViewModelBase
                         buffer.Add(vm);
                     }
 
-                    // Post to UI in batches every 150ms or 30 items
                     if (buffer.Count >= 30 || (DateTime.UtcNow - lastFlush).TotalMilliseconds > 150)
                     {
                         List<FileItemViewModel> toPost;
@@ -321,14 +365,12 @@ public partial class MainViewModel : ViewModelBase
                         {
                             foreach (var item in toPost)
                             {
-                                _allItems.Add(item);
-                                Items.Add(item);
+                                ActivePane.AddItemDirectly(item);
                             }
                         }, DispatcherPriority.Background);
                     }
                 }
 
-                // Final flush of remaining items
                 if (buffer.Count > 0)
                 {
                     List<FileItemViewModel> toPost;
@@ -342,8 +384,7 @@ public partial class MainViewModel : ViewModelBase
                     {
                         foreach (var item in toPost)
                         {
-                            _allItems.Add(item);
-                            Items.Add(item);
+                            ActivePane.AddItemDirectly(item);
                         }
                     }, DispatcherPriority.Background);
                 }
@@ -351,14 +392,12 @@ public partial class MainViewModel : ViewModelBase
 
             if (!token.IsCancellationRequested)
             {
-                SearchStatusText = $"Пошук завершено. Знайдено елементів: {_allItems.Count}";
-                StatusMessage = $"Пошук завершено. Знайдено елементів: {_allItems.Count}";
+                SearchStatusText = $"Пошук завершено. Знайдено елементів: {ActivePane.Items.Count}";
             }
         }
         catch (OperationCanceledException)
         {
-            SearchStatusText = $"Пошук зупинено. Знайдено: {_allItems.Count}";
-            StatusMessage = "Пошук скасовано";
+            SearchStatusText = $"Пошук зупинено. Знайдено: {ActivePane.Items.Count}";
         }
         catch (Exception ex)
         {
@@ -383,13 +422,13 @@ public partial class MainViewModel : ViewModelBase
         CancelSearch();
         IsSearchMode = false;
         SearchQuery = string.Empty;
-        await NavigateToAsync(CurrentPath);
+        await ActivePane.NavigateToAsync(ActivePane.CurrentPath);
     }
 
     [RelayCommand]
     public async Task OpenFileLocationAsync(FileItemViewModel? item)
     {
-        item ??= SelectedItem;
+        item ??= ActivePane.SelectedItem;
         if (item == null) return;
 
         string? targetDir = item.IsDirectory ? item.FullPath : _fileSystemService.GetParentDirectory(item.FullPath);
@@ -397,201 +436,28 @@ public partial class MainViewModel : ViewModelBase
             return;
 
         ExitSearchModeCommand.Execute(null);
-        await NavigateToAsync(targetDir);
+        await ActivePane.NavigateToAsync(targetDir);
 
-        var matchInFolder = Items.FirstOrDefault(x => x.FullPath.Equals(item.FullPath, StringComparison.OrdinalIgnoreCase));
+        var matchInFolder = ActivePane.Items.FirstOrDefault(x => x.FullPath.Equals(item.FullPath, StringComparison.OrdinalIgnoreCase));
         if (matchInFolder != null)
         {
-            SelectedItem = matchInFolder;
+            ActivePane.SelectedItem = matchInFolder;
         }
     }
 
     [RelayCommand]
-    public void ToggleSort(string fieldName)
+    public async Task NavigateToPathAsync(string? path)
     {
-        if (Enum.TryParse<SortField>(fieldName, true, out var field))
+        if (!string.IsNullOrWhiteSpace(path))
         {
-            if (CurrentSortField == field)
-            {
-                SortAscending = !SortAscending;
-            }
-            else
-            {
-                CurrentSortField = field;
-                SortAscending = true;
-            }
-        }
-    }
-
-    [RelayCommand]
-    public async Task CalculateFolderSizesAsync()
-    {
-        _sizeCalcCts?.Cancel();
-        _sizeCalcCts = new CancellationTokenSource();
-        var token = _sizeCalcCts.Token;
-
-        var directories = _allItems.Where(x => x.IsDirectory && x.Name != "..").ToList();
-        if (directories.Count == 0) return;
-
-        IsCalculatingFolderSizes = true;
-        StatusMessage = $"Обчислення розмірів папок (0/{directories.Count})...";
-
-        try
-        {
-            int completed = 0;
-            foreach (var dir in directories)
-            {
-                token.ThrowIfCancellationRequested();
-
-                dir.IsCalculatingSize = true;
-                try
-                {
-                    var size = await _fileSystemService.CalculateDirectorySizeBytesAsync(dir.FullPath, token);
-                    dir.CalculatedSizeBytes = size;
-                }
-                catch (OperationCanceledException)
-                {
-                    break;
-                }
-                catch
-                {
-                    dir.CalculatedSizeBytes = null;
-                }
-                finally
-                {
-                    dir.IsCalculatingSize = false;
-                }
-
-                completed++;
-                StatusMessage = $"Обчислення розмірів папок ({completed}/{directories.Count})...";
-            }
-
-            if (!token.IsCancellationRequested)
-            {
-                StatusMessage = "Розміри папок обчислено";
-                if (CurrentSortField == SortField.Size)
-                {
-                    ApplyFilterAndSort();
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // Cancelled
-        }
-        finally
-        {
-            if (!token.IsCancellationRequested)
-            {
-                IsCalculatingFolderSizes = false;
-            }
-        }
-    }
-
-    [RelayCommand]
-    public async Task NavigateToAsync(string? targetPath)
-    {
-        if (string.IsNullOrWhiteSpace(targetPath))
-        {
-            ShowBanner("Шлях не може бути порожнім.", NotificationSeverity.Warning);
-            return;
-        }
-
-        targetPath = targetPath.Trim('\"', '\'').Trim();
-
-        char[] invalidChars = Path.GetInvalidPathChars();
-        if (targetPath.IndexOfAny(invalidChars) >= 0)
-        {
-            ShowBanner($"Шлях містить неприпустимі символи: '{targetPath}'", NotificationSeverity.Error);
-            StatusMessage = "Помилка введення шляху";
-            PathInput = CurrentPath;
-            return;
-        }
-
-        _loadCts?.Cancel();
-        _loadCts = new CancellationTokenSource();
-        var token = _loadCts.Token;
-
-        _sizeCalcCts?.Cancel();
-        IsCalculatingFolderSizes = false;
-
-        _searchCts?.Cancel();
-        IsSearching = false;
-        IsSearchMode = false;
-
-        _previewCts?.Cancel();
-        Preview.Reset();
-
-        IsLoading = true;
-        StatusMessage = "Завантаження...";
-        DismissBanner();
-
-        try
-        {
-            var rawItems = await _fileSystemService.GetItemsAsync(targetPath, token);
-
-            if (token.IsCancellationRequested)
-                return;
-
-            CurrentPath = targetPath;
-            PathInput = targetPath;
-            CanGoUp = _fileSystemService.GetParentDirectory(targetPath) != null;
-
-            _allItems.Clear();
-            foreach (var item in rawItems)
-            {
-                _allItems.Add(new FileItemViewModel(item, _fileSystemService));
-            }
-
-            ApplyFilterAndSort();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            ShowBanner($"Доступ заборонено: у вас немає прав для перегляду '{targetPath}'", NotificationSeverity.Error);
-            StatusMessage = "Помилка: відмовлено в доступі";
-            PathInput = CurrentPath;
-        }
-        catch (DirectoryNotFoundException)
-        {
-            ShowBanner($"Каталог не існує: '{targetPath}'", NotificationSeverity.Warning);
-            StatusMessage = "Помилка: каталог не знайдено";
-            PathInput = CurrentPath;
-        }
-        catch (PathTooLongException)
-        {
-            ShowBanner("Занадто довгий шлях до каталогу (перевищено ліміт ОС).", NotificationSeverity.Error);
-            StatusMessage = "Помилка: шлях занадто довгий";
-            PathInput = CurrentPath;
-        }
-        catch (SecurityException)
-        {
-            ShowBanner($"Помилка безпеки при доступі до '{targetPath}'", NotificationSeverity.Error);
-            StatusMessage = "Помилка безпеки";
-            PathInput = CurrentPath;
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected on fast navigation
-        }
-        catch (Exception ex)
-        {
-            ShowBanner($"Непередбачена помилка: {ex.Message}", NotificationSeverity.Error);
-            StatusMessage = $"Помилка: {ex.Message}";
-            PathInput = CurrentPath;
-        }
-        finally
-        {
-            if (!token.IsCancellationRequested)
-            {
-                IsLoading = false;
-            }
+            await ActivePane.NavigateToAsync(path);
         }
     }
 
     [RelayCommand]
     public async Task CopyPathAsync(FileItemViewModel? item)
     {
-        item ??= SelectedItem;
+        item ??= ActivePane.SelectedItem;
         if (item == null) return;
 
         try
@@ -615,7 +481,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public async Task DeleteItemAsync(FileItemViewModel? item)
     {
-        item ??= SelectedItem;
+        item ??= ActivePane.SelectedItem;
         if (item == null || item.Name == "..") return;
 
         try
@@ -630,7 +496,7 @@ public partial class MainViewModel : ViewModelBase
             }
 
             ShowBanner($"Видалено: {item.Name}", NotificationSeverity.Info);
-            await RefreshAsync();
+            await ActivePane.RefreshAsync();
         }
         catch (UnauthorizedAccessException)
         {
@@ -645,170 +511,16 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public void ShowProperties(FileItemViewModel? item)
     {
-        item ??= SelectedItem;
+        item ??= ActivePane.SelectedItem;
         if (item == null || item.Name == "..") return;
 
         string info = $"{item.Name} | Тип: {item.TypeDescription} | Розмір: {item.FormattedSize} | Змінено: {item.FormattedDate}";
         ShowBanner(info, NotificationSeverity.Info);
     }
 
-    private void ApplyFilterAndSort()
-    {
-        if (IsSearchMode)
-            return;
-
-        var parentItem = _allItems.FirstOrDefault(x => x.Name == "..");
-        var query = FilterQuery.Trim();
-
-        IEnumerable<FileItemViewModel> filtered = _allItems.Where(x => x.Name != "..");
-
-        if (!string.IsNullOrWhiteSpace(query))
-        {
-            filtered = filtered.Where(x => 
-                x.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                (!string.IsNullOrWhiteSpace(x.Extension) && x.Extension.Contains(query, StringComparison.CurrentCultureIgnoreCase)));
-        }
-
-        var dirs = filtered.Where(x => x.IsDirectory);
-        var files = filtered.Where(x => !x.IsDirectory);
-
-        dirs = SortCollection(dirs);
-        files = SortCollection(files);
-
-        Items.Clear();
-
-        if (parentItem != null && string.IsNullOrWhiteSpace(query))
-        {
-            Items.Add(parentItem);
-        }
-
-        foreach (var dir in dirs)
-        {
-            Items.Add(dir);
-        }
-
-        foreach (var file in files)
-        {
-            Items.Add(file);
-        }
-
-        var filterInfo = string.IsNullOrWhiteSpace(query) ? string.Empty : $" (знайдено: {Items.Count(x => x.Name != "..")})";
-        StatusMessage = $"Елементів: {_allItems.Count(x => x.Name != "..")}{filterInfo}";
-    }
-
-    private IEnumerable<FileItemViewModel> SortCollection(IEnumerable<FileItemViewModel> source)
-    {
-        return CurrentSortField switch
-        {
-            SortField.Name => SortAscending
-                ? source.OrderBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase)
-                : source.OrderByDescending(x => x.Name, StringComparer.CurrentCultureIgnoreCase),
-
-            SortField.Type => SortAscending
-                ? source.OrderBy(x => x.Extension ?? string.Empty, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name)
-                : source.OrderByDescending(x => x.Extension ?? string.Empty, StringComparer.CurrentCultureIgnoreCase).ThenBy(x => x.Name),
-
-            SortField.Size => SortAscending
-                ? source.OrderBy(x => x.SizeBytes ?? 0).ThenBy(x => x.Name)
-                : source.OrderByDescending(x => x.SizeBytes ?? 0).ThenBy(x => x.Name),
-
-            SortField.Date => SortAscending
-                ? source.OrderBy(x => x.ModifiedDate ?? DateTime.MinValue).ThenBy(x => x.Name)
-                : source.OrderByDescending(x => x.ModifiedDate ?? DateTime.MinValue).ThenBy(x => x.Name),
-
-            _ => source
-        };
-    }
-
     [RelayCommand]
-    public Task NavigateFromInputAsync()
+    public Task OpenItemAsync(FileItemViewModel? item)
     {
-        return NavigateToAsync(PathInput);
-    }
-
-    [RelayCommand]
-    public Task GoUpAsync()
-    {
-        if (IsSearchMode)
-        {
-            return ExitSearchModeAsync();
-        }
-
-        var parent = _fileSystemService.GetParentDirectory(CurrentPath);
-        if (!string.IsNullOrWhiteSpace(parent))
-        {
-            return NavigateToAsync(parent);
-        }
-        return Task.CompletedTask;
-    }
-
-    [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        if (IsSearchMode)
-        {
-            await StartSearchAsync();
-            return;
-        }
-
-        LoadDrives();
-
-        if (!_fileSystemService.DirectoryExists(CurrentPath))
-        {
-            ShowBanner($"Поточний каталог більше не існує. Повертаємось до батьківської папки.", NotificationSeverity.Warning);
-            var fallback = _fileSystemService.GetParentDirectory(CurrentPath);
-            while (!string.IsNullOrWhiteSpace(fallback) && !_fileSystemService.DirectoryExists(fallback))
-            {
-                fallback = _fileSystemService.GetParentDirectory(fallback);
-            }
-
-            if (string.IsNullOrWhiteSpace(fallback))
-            {
-                fallback = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            }
-
-            await NavigateToAsync(fallback);
-            return;
-        }
-
-        await NavigateToAsync(CurrentPath);
-    }
-
-    [RelayCommand]
-    public async Task OpenItemAsync(FileItemViewModel? item)
-    {
-        item ??= SelectedItem;
-        if (item == null) return;
-
-        if (item.IsDirectory)
-        {
-            if (IsSearchMode)
-            {
-                IsSearchMode = false;
-            }
-            await NavigateToAsync(item.FullPath);
-        }
-        else
-        {
-            try
-            {
-                if (!File.Exists(item.FullPath))
-                {
-                    ShowBanner($"Файл не знайдено: '{item.Name}'", NotificationSeverity.Warning);
-                    return;
-                }
-
-                var psi = new ProcessStartInfo
-                {
-                    FileName = item.FullPath,
-                    UseShellExecute = true
-                };
-                Process.Start(psi);
-            }
-            catch (Exception ex)
-            {
-                ShowBanner($"Не вдалося запустити файл '{item.Name}': {ex.Message}", NotificationSeverity.Error);
-            }
-        }
+        return ActivePane.OpenItemAsync(item);
     }
 }

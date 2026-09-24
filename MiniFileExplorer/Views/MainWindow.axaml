@@ -1,17 +1,18 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
-        xmlns:models="using:MiniFileExplorer.Models"
+        xmlns:views="using:MiniFileExplorer.Views"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
+        mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="700"
         x:Class="MiniFileExplorer.Views.MainWindow"
         x:Name="MainWindowRoot"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="Mini File Explorer"
-        Width="1150" Height="700"
-        MinWidth="700" MinHeight="450"
+        Width="1200" Height="720"
+        MinWidth="750" MinHeight="480"
+        KeyDown="OnWindowKeyDown"
         WindowStartupLocation="CenterScreen">
 
     <Design.DataContext>
@@ -19,45 +20,27 @@
     </Design.DataContext>
 
     <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
-        <!-- Top Toolbar & Navigation -->
-        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
-            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto">
-                <!-- Navigation buttons -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="0,0,8,0">
-                    <Button Command="{Binding GoUpCommand}" 
-                            IsEnabled="{Binding CanGoUp}" 
-                            ToolTip.Tip="Вгору (..)" 
-                            Padding="8,4">
-                        <TextBlock Text="⬆ Вгору" />
-                    </Button>
-                    <Button Command="{Binding RefreshCommand}" 
-                            ToolTip.Tip="Оновити" 
-                            Padding="8,4">
-                        <TextBlock Text="🔄" />
-                    </Button>
-                </StackPanel>
-
-                <!-- Editable Address Bar -->
-                <TextBox Grid.Column="1" 
-                         Text="{Binding PathInput, Mode=TwoWay}"
-                         VerticalAlignment="Center"
-                         PlaceholderText="Введіть шлях до папки..."
-                         KeyDown="OnAddressBarKeyDown" />
-
-                <!-- Go Button -->
-                <Button Grid.Column="2" 
-                        Command="{Binding NavigateFromInputCommand}" 
-                        Margin="8,0,8,0" 
-                        Padding="12,4">
-                    <TextBlock Text="Перейти" />
-                </Button>
+        <!-- Top Toolbar & Global Actions -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+                <!-- Dual Pane Toggle Button -->
+                <ToggleButton Grid.Column="0" 
+                              IsChecked="{Binding IsDualPaneMode, Mode=TwoWay}"
+                              ToolTip.Tip="Перемкнути двопанельний режим Total Commander (Tab для зміни активної панелі)"
+                              Margin="0,0,10,0" 
+                              Padding="10,4">
+                    <StackPanel Orientation="Horizontal" Spacing="5">
+                        <TextBlock Text="🗂" />
+                        <TextBlock Text="2 Панелі" />
+                    </StackPanel>
+                </ToggleButton>
 
                 <!-- Recursive Search (Everything-style) Box -->
-                <Grid Grid.Column="3" Width="220" Margin="0,0,8,0" ColumnDefinitions="*, Auto, Auto">
+                <Grid Grid.Column="1" Margin="0,0,10,0" ColumnDefinitions="*, Auto, Auto">
                     <TextBox Grid.Column="0" 
                              Text="{Binding SearchQuery, Mode=TwoWay}"
-                             PlaceholderText="🔍 Пошук Everything (*.cs)..."
-                             Padding="6,4"
+                             PlaceholderText="🔍 Пошук Everything (*.cs, pdf)..."
+                             Padding="8,4"
                              KeyDown="OnSearchBoxKeyDown"
                              VerticalAlignment="Center" />
                     <Button Grid.Column="1" 
@@ -80,24 +63,24 @@
                     </Button>
                 </Grid>
 
-                <!-- Calculate Folder Sizes Button -->
-                <Button Grid.Column="4" 
-                        Command="{Binding CalculateFolderSizesCommand}" 
-                        IsEnabled="{Binding !IsCalculatingFolderSizes}"
-                        ToolTip.Tip="Асинхронно порахувати реальний розмір кожної папки"
-                        Margin="0,0,8,0" 
-                        Padding="10,4">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="📊" />
-                        <TextBlock Text="Розміри" />
-                    </StackPanel>
-                </Button>
+                <!-- Dual Pane Copy / Move quick actions (visible in dual mode) -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="0,0,10,0" IsVisible="{Binding IsDualPaneMode}">
+                    <Button Command="{Binding CopyBetweenPanesCommand}" 
+                            ToolTip.Tip="Скопіювати в сусідню панель (F5)" 
+                            Padding="8,4">
+                        <TextBlock Text="📋 F5 Копіювати" />
+                    </Button>
+                    <Button Command="{Binding MoveBetweenPanesCommand}" 
+                            ToolTip.Tip="Перемістити в сусідню панель (F6)" 
+                            Padding="8,4">
+                        <TextBlock Text="🚚 F6 Перемістити" />
+                    </Button>
+                </StackPanel>
 
                 <!-- Toggle Preview Pane Button -->
-                <ToggleButton Grid.Column="5" 
+                <ToggleButton Grid.Column="3" 
                               IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
                               ToolTip.Tip="Показати / приховати панель попереднього перегляду"
-                              Margin="0,0,0,0" 
                               Padding="10,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="👁" />
@@ -149,24 +132,23 @@
             </Grid>
         </Border>
 
-        <!-- Main Content Area: Left Sidebar + Files Area + Splitter + Preview Pane -->
+        <!-- Main Workspace: Sidebar + [Files Area (1 or 2 Panes)] + [Splitter + Preview] -->
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="200" MinWidth="140" MaxWidth="320" />
+                <ColumnDefinition Width="190" MinWidth="140" MaxWidth="300" />
                 <ColumnDefinition Width="*" MinWidth="350" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="340" MinWidth="200" MaxWidth="800" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- Column 0: Left Windows-style Sidebar -->
+            <!-- Column 0: Left Sidebar -->
             <Border Grid.Column="0" 
                     Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" 
                     BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
                     BorderThickness="0,0,1,0" 
                     Padding="4">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="10">
-                        <!-- Quick Access Section -->
+                    <StackPanel Spacing="8">
                         <TextBlock Text="ШВИДКИЙ ДОСТУП" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,6,8,2" />
                         <ItemsControl ItemsSource="{Binding QuickAccessItems}">
                             <ItemsControl.ItemTemplate>
@@ -174,9 +156,8 @@
                                     <Button Background="Transparent" 
                                             HorizontalAlignment="Stretch" 
                                             HorizontalContentAlignment="Left"
-                                            Padding="8,6" 
-                                            Margin="2,1"
-                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
+                                            Padding="8,5" Margin="2,1"
+                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
                                             CommandParameter="{Binding Path}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" />
@@ -187,17 +168,15 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- Drives Section -->
-                        <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,10,8,2" />
+                        <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,8,8,2" />
                         <ItemsControl ItemsSource="{Binding DriveSidebarItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SidebarItemViewModel">
                                     <Button Background="Transparent" 
                                             HorizontalAlignment="Stretch" 
                                             HorizontalContentAlignment="Left"
-                                            Padding="8,6" 
-                                            Margin="2,1"
-                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToCommand, FallbackValue={x:Null}}"
+                                            Padding="8,5" Margin="2,1"
+                                            Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
                                             CommandParameter="{Binding Path}">
                                         <Grid ColumnDefinitions="Auto, *">
                                             <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -214,151 +193,25 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- Column 1: Files Area with Column Headers and Filter -->
-            <Grid Grid.Column="1" RowDefinitions="Auto, *">
-                <!-- Column Headers & Quick Filter Bar -->
-                <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="12,4,12,4">
-                    <Grid ColumnDefinitions="30, *, 120, 130, 160, 160">
-                        <TextBlock Grid.Column="0" Text="" />
-                        
-                        <!-- Sort by Name -->
-                        <Button Grid.Column="1" 
-                                Command="{Binding ToggleSortCommand}" 
-                                CommandParameter="Name" 
-                                Background="Transparent" 
-                                BorderThickness="0" 
-                                Padding="4,2" 
-                                HorizontalAlignment="Left">
-                            <TextBlock FontWeight="SemiBold">
-                                <Run Text="Назва" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" />
-                            </TextBlock>
-                        </Button>
+            <!-- Column 1: Files Area (Single pane or Dual pane) -->
+            <Grid Grid.Column="1">
+                <!-- Single Pane Mode -->
+                <ContentControl IsVisible="{Binding !IsDualPaneMode}">
+                    <views:FilePaneView DataContext="{Binding LeftPane}" />
+                </ContentControl>
 
-                        <!-- Sort by Type -->
-                        <Button Grid.Column="2" 
-                                Command="{Binding ToggleSortCommand}" 
-                                CommandParameter="Type" 
-                                Background="Transparent" 
-                                BorderThickness="0" 
-                                Padding="4,2" 
-                                HorizontalAlignment="Left">
-                            <TextBlock FontWeight="SemiBold">
-                                <Run Text="Тип" /><Run Text="{Binding TypeSortIndicator}" Foreground="DodgerBlue" />
-                            </TextBlock>
-                        </Button>
-
-                        <!-- Sort by Size -->
-                        <Button Grid.Column="3" 
-                                Command="{Binding ToggleSortCommand}" 
-                                CommandParameter="Size" 
-                                Background="Transparent" 
-                                BorderThickness="0" 
-                                Padding="4,2" 
-                                HorizontalAlignment="Right">
-                            <TextBlock FontWeight="SemiBold">
-                                <Run Text="Розмір" /><Run Text="{Binding SizeSortIndicator}" Foreground="DodgerBlue" />
-                            </TextBlock>
-                        </Button>
-
-                        <!-- Sort by Date -->
-                        <Button Grid.Column="4" 
-                                Command="{Binding ToggleSortCommand}" 
-                                CommandParameter="Date" 
-                                Background="Transparent" 
-                                BorderThickness="0" 
-                                Padding="4,2" 
-                                HorizontalAlignment="Right">
-                            <TextBlock FontWeight="SemiBold">
-                                <Run Text="Дата зміни" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
-                            </TextBlock>
-                        </Button>
-
-                        <!-- In-Folder Quick Filter -->
-                        <Grid Grid.Column="5" Margin="8,0,0,0" ColumnDefinitions="*, Auto">
-                            <TextBox Grid.Column="0" 
-                                     Text="{Binding FilterQuery, Mode=TwoWay}" 
-                                     PlaceholderText="🔍 Фільтр тут..." 
-                                     Padding="6,2" 
-                                     FontSize="11" 
-                                     VerticalAlignment="Center" />
-                            <Button Grid.Column="1" 
-                                    Command="{Binding ClearFilterCommand}" 
-                                    IsVisible="{Binding FilterQuery.Length}" 
-                                    Background="Transparent" 
-                                    BorderThickness="0" 
-                                    Padding="4,2">
-                                <TextBlock Text="✕" Foreground="Gray" FontSize="10" />
-                            </Button>
-                        </Grid>
-                    </Grid>
-                </Border>
-
-                <!-- Files List with Right-Click Context Menu -->
-                <Grid Grid.Row="1">
-                    <ListBox ItemsSource="{Binding Items}"
-                             SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
-                             DoubleTapped="OnItemListDoubleTapped"
-                             KeyDown="OnItemListKeyDown"
-                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate x:DataType="vm:FileItemViewModel">
-                                <Grid ColumnDefinitions="30, *, 120, 130, 160" Margin="0,2">
-                                    <!-- Context Menu on Right Click -->
-                                    <Grid.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="📂 Відкрити" 
-                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).OpenItemCommand, FallbackValue={x:Null}}" 
-                                                      CommandParameter="{Binding}" 
-                                                      InputGesture="Enter" />
-                                            <MenuItem Header="📍 Відкрити розташування папки" 
-                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).OpenFileLocationCommand, FallbackValue={x:Null}}" 
-                                                      CommandParameter="{Binding}" 
-                                                      IsVisible="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).IsSearchMode, FallbackValue=False}" />
-                                            <Separator />
-                                            <MenuItem Header="📋 Копіювати як шлях" 
-                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).CopyPathCommand, FallbackValue={x:Null}}" 
-                                                      CommandParameter="{Binding}" 
-                                                      InputGesture="Ctrl+Shift+C" />
-                                            <Separator />
-                                            <MenuItem Header="🗑 Видалити" 
-                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).DeleteItemCommand, FallbackValue={x:Null}}" 
-                                                      CommandParameter="{Binding}" 
-                                                      InputGesture="Delete" />
-                                            <Separator />
-                                            <MenuItem Header="ℹ Властивості" 
-                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).ShowPropertiesCommand, FallbackValue={x:Null}}" 
-                                                      CommandParameter="{Binding}" />
-                                        </ContextMenu>
-                                    </Grid.ContextMenu>
-
-                                    <!-- Icon / Glyph -->
-                                    <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                    
-                                    <!-- Name -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" ToolTip.Tip="{Binding FullPath}" />
-                                    
-                                    <!-- Type -->
-                                    <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
-
-                                    <!-- Size -->
-                                    <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
-                                    
-                                    <!-- Modified Date -->
-                                    <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="8,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-
-                    <!-- Loading Spinner / Overlay -->
-                    <ProgressBar IsIndeterminate="True" 
-                                 IsVisible="{Binding IsLoading}" 
-                                 VerticalAlignment="Top" 
-                                 Height="4" />
+                <!-- Dual Pane Mode -->
+                <Grid ColumnDefinitions="*, Auto, *" IsVisible="{Binding IsDualPaneMode}">
+                    <views:FilePaneView Grid.Column="0" DataContext="{Binding LeftPane}" />
+                    <GridSplitter Grid.Column="1" 
+                                  Width="5" 
+                                  Background="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                                  ResizeDirection="Columns" />
+                    <views:FilePaneView Grid.Column="2" DataContext="{Binding RightPane}" />
                 </Grid>
             </Grid>
 
-            <!-- Column 2: Splitter between files and preview -->
+            <!-- Column 2: Splitter between Files and Preview -->
             <GridSplitter Grid.Column="2" 
                           Width="5" 
                           Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
@@ -368,6 +221,7 @@
             <!-- Column 3: Preview Pane -->
             <Border Grid.Column="3" 
                     IsVisible="{Binding IsPreviewPaneVisible}"
+                    Width="320" MinWidth="200" MaxWidth="700"
                     Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
                     BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                     BorderThickness="1,0,0,0">
@@ -400,7 +254,7 @@
                         <StackPanel IsVisible="{Binding Preview.IsFolder}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
                             <TextBlock Text="📁" FontSize="48" HorizontalAlignment="Center" />
                             <TextBlock Text="Папка файлової системи" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Text="{Binding Preview.FilePath}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" MaxWidth="280" HorizontalAlignment="Center" TextAlignment="Center" />
+                            <TextBlock Text="{Binding Preview.FilePath}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" MaxWidth="260" HorizontalAlignment="Center" TextAlignment="Center" />
                         </StackPanel>
 
                         <!-- Text / Code Preview -->
@@ -421,7 +275,7 @@
                         </Grid>
 
                         <!-- Binary / Other File Card -->
-                        <Border IsVisible="{Binding Preview.IsBinary}" VerticalAlignment="Center" HorizontalAlignment="Center" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="16" MaxWidth="280">
+                        <Border IsVisible="{Binding Preview.IsBinary}" VerticalAlignment="Center" HorizontalAlignment="Center" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="16" MaxWidth="260">
                             <StackPanel Spacing="10">
                                 <TextBlock Text="⚙" FontSize="40" HorizontalAlignment="Center" />
                                 <TextBlock Text="{Binding Preview.Title}" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" />
@@ -441,9 +295,10 @@
 
         <!-- Status Bar -->
         <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
-            <Grid ColumnDefinitions="*, Auto">
-                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
-                <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />
+            <Grid ColumnDefinitions="*, Auto, Auto">
+                <TextBlock Grid.Column="0" Text="{Binding ActivePane.StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
+                <TextBlock Grid.Column="1" Text="Активна: " Foreground="Gray" Margin="10,0,4,0" IsVisible="{Binding IsDualPaneMode}" />
+                <TextBlock Grid.Column="2" Text="{Binding ActivePane.CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="450" />
             </Grid>
         </Border>
     </Grid>

@@ -12,18 +12,6 @@ public partial class MainWindow : Window
         InitializeComponent();
     }
 
-    private void OnAddressBarKeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key == Key.Enter)
-        {
-            if (DataContext is MainViewModel vm)
-            {
-                vm.NavigateFromInputCommand.Execute(null);
-            }
-            e.Handled = true;
-        }
-    }
-
     private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Enter)
@@ -36,40 +24,32 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnItemListDoubleTapped(object? sender, TappedEventArgs e)
-    {
-        if (DataContext is MainViewModel vm && vm.SelectedItem != null)
-        {
-            vm.OpenItemCommand.Execute(vm.SelectedItem);
-        }
-    }
-
-    private void OnItemListKeyDown(object? sender, KeyEventArgs e)
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm)
             return;
 
-        if (e.Key == Key.Enter)
+        if (e.Key == Key.Tab)
         {
-            if (vm.SelectedItem != null)
+            if (vm.IsDualPaneMode)
             {
-                vm.OpenItemCommand.Execute(vm.SelectedItem);
+                vm.SwapActivePaneCommand.Execute(null);
                 e.Handled = true;
             }
         }
-        else if (e.Key == Key.Back)
+        else if (e.Key == Key.F5)
         {
-            if (vm.CanGoUp)
+            if (vm.IsDualPaneMode && vm.CopyBetweenPanesCommand.CanExecute(null))
             {
-                vm.GoUpCommand.Execute(null);
+                vm.CopyBetweenPanesCommand.Execute(null);
                 e.Handled = true;
             }
         }
-        else if (e.Key == Key.Delete)
+        else if (e.Key == Key.F6)
         {
-            if (vm.SelectedItem != null)
+            if (vm.IsDualPaneMode && vm.MoveBetweenPanesCommand.CanExecute(null))
             {
-                vm.DeleteItemCommand.Execute(vm.SelectedItem);
+                vm.MoveBetweenPanesCommand.Execute(null);
                 e.Handled = true;
             }
         }

@@ -1,0 +1,209 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:MiniFileExplorer.ViewModels"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
+             x:Class="MiniFileExplorer.Views.FilePaneView"
+             x:DataType="vm:FilePaneViewModel">
+
+    <Border BorderBrush="{Binding IsActive, Converter={x:Null}, FallbackValue=Transparent}" 
+            BorderThickness="1" 
+            Classes.active="{Binding IsActive}">
+        <Border.Styles>
+            <Style Selector="Border.active">
+                <Setter Property="BorderBrush" Value="DodgerBlue" />
+            </Style>
+        </Border.Styles>
+
+        <Grid RowDefinitions="Auto, Auto, *">
+            <!-- Pane Navigation & Address Bar -->
+            <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="6,4">
+                <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,6,0">
+                        <Button Command="{Binding GoUpCommand}" 
+                                IsEnabled="{Binding CanGoUp}" 
+                                ToolTip.Tip="Вгору (..)" 
+                                Padding="6,3">
+                            <TextBlock Text="⬆" />
+                        </Button>
+                        <Button Command="{Binding RefreshCommand}" 
+                                ToolTip.Tip="Оновити" 
+                                Padding="6,3">
+                            <TextBlock Text="🔄" />
+                        </Button>
+                    </StackPanel>
+
+                    <TextBox Grid.Column="1" 
+                             Text="{Binding PathInput, Mode=TwoWay}"
+                             VerticalAlignment="Center"
+                             Padding="6,3" FontSize="12"
+                             PlaceholderText="Шлях до папки..."
+                             KeyDown="OnAddressBarKeyDown" />
+
+                    <Button Grid.Column="2" 
+                            Command="{Binding NavigateFromInputCommand}" 
+                            Margin="6,0,0,0" 
+                            Padding="8,3">
+                        <TextBlock Text="➡" />
+                    </Button>
+
+                    <Button Grid.Column="3" 
+                            Command="{Binding CalculateFolderSizesCommand}" 
+                            IsEnabled="{Binding !IsCalculatingFolderSizes}"
+                            ToolTip.Tip="Порахувати розміри папок"
+                            Margin="6,0,0,0" 
+                            Padding="8,3">
+                        <TextBlock Text="📊" />
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Column Headers & In-Pane Quick Filter -->
+            <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,3">
+                <Grid ColumnDefinitions="26, *, 85, 80, 115, 100">
+                    <TextBlock Grid.Column="0" Text="" />
+
+                    <!-- Sort by Name -->
+                    <Button Grid.Column="1" 
+                            Command="{Binding ToggleSortCommand}" 
+                            CommandParameter="Name" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Padding="2" 
+                            HorizontalAlignment="Left">
+                        <TextBlock FontWeight="SemiBold" FontSize="11">
+                            <Run Text="Назва" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" />
+                        </TextBlock>
+                    </Button>
+
+                    <!-- Sort by Type -->
+                    <Button Grid.Column="2" 
+                            Command="{Binding ToggleSortCommand}" 
+                            CommandParameter="Type" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Padding="2" 
+                            HorizontalAlignment="Left">
+                        <TextBlock FontWeight="SemiBold" FontSize="11">
+                            <Run Text="Тип" /><Run Text="{Binding TypeSortIndicator}" Foreground="DodgerBlue" />
+                        </TextBlock>
+                    </Button>
+
+                    <!-- Sort by Size -->
+                    <Button Grid.Column="3" 
+                            Command="{Binding ToggleSortCommand}" 
+                            CommandParameter="Size" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Padding="2" 
+                            HorizontalAlignment="Right">
+                        <TextBlock FontWeight="SemiBold" FontSize="11">
+                            <Run Text="Розмір" /><Run Text="{Binding SizeSortIndicator}" Foreground="DodgerBlue" />
+                        </TextBlock>
+                    </Button>
+
+                    <!-- Sort by Date -->
+                    <Button Grid.Column="4" 
+                            Command="{Binding ToggleSortCommand}" 
+                            CommandParameter="Date" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Padding="2" 
+                            HorizontalAlignment="Right">
+                        <TextBlock FontWeight="SemiBold" FontSize="11">
+                            <Run Text="Дата" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
+                        </TextBlock>
+                    </Button>
+
+                    <!-- Quick Filter -->
+                    <Grid Grid.Column="5" Margin="6,0,0,0" ColumnDefinitions="*, Auto">
+                        <TextBox Grid.Column="0" 
+                                 Text="{Binding FilterQuery, Mode=TwoWay}" 
+                                 PlaceholderText="🔍..." 
+                                 Padding="4,2" 
+                                 FontSize="10" 
+                                 VerticalAlignment="Center" />
+                        <Button Grid.Column="1" 
+                                Command="{Binding ClearFilterCommand}" 
+                                IsVisible="{Binding FilterQuery.Length}" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Padding="2">
+                            <TextBlock Text="✕" Foreground="Gray" FontSize="9" />
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Files List -->
+            <Grid Grid.Row="2" PointerPressed="OnPanePointerPressed">
+                <ListBox ItemsSource="{Binding Items}"
+                         SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                         DoubleTapped="OnItemListDoubleTapped"
+                         KeyDown="OnItemListKeyDown"
+                         GotFocus="OnListBoxGotFocus"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="8,2" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                            <Grid ColumnDefinitions="26, *, 85, 80, 115, 100" Margin="0,1">
+                                <!-- Context Menu on Right Click -->
+                                <Grid.ContextMenu>
+                                    <ContextMenu x:CompileBindings="False">
+                                        <MenuItem Header="📂 Відкрити" 
+                                                  Command="{Binding DataContext.OpenItemCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="Enter" />
+                                        <MenuItem Header="📍 Відкрити розташування папки" 
+                                                  Command="{Binding DataContext.OpenFileLocationCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  CommandParameter="{Binding}" 
+                                                  IsVisible="{Binding DataContext.IsSearchMode, ElementName=MainWindowRoot, FallbackValue=False}" />
+                                        <Separator />
+                                        <MenuItem Header="📋 Копіювати в іншу панель (F5)" 
+                                                  Command="{Binding DataContext.CopyBetweenPanesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  IsVisible="{Binding DataContext.IsDualPaneMode, ElementName=MainWindowRoot, FallbackValue=False}" 
+                                                  InputGesture="F5" />
+                                        <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
+                                                  Command="{Binding DataContext.MoveBetweenPanesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  IsVisible="{Binding DataContext.IsDualPaneMode, ElementName=MainWindowRoot, FallbackValue=False}" 
+                                                  InputGesture="F6" />
+                                        <Separator />
+                                        <MenuItem Header="📋 Копіювати як шлях" 
+                                                  Command="{Binding DataContext.CopyPathCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="Ctrl+Shift+C" />
+                                        <Separator />
+                                        <MenuItem Header="🗑 Видалити" 
+                                                  Command="{Binding DataContext.DeleteItemCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="Delete" />
+                                        <Separator />
+                                        <MenuItem Header="ℹ Властивості" 
+                                                  Command="{Binding DataContext.ShowPropertiesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  CommandParameter="{Binding}" />
+                                    </ContextMenu>
+                                </Grid.ContextMenu>
+
+                                <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" ToolTip.Tip="{Binding FullPath}" />
+                                <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                                <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
+                                <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <ProgressBar IsIndeterminate="True" 
+                             IsVisible="{Binding IsLoading}" 
+                             VerticalAlignment="Top" 
+                             Height="3" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>
