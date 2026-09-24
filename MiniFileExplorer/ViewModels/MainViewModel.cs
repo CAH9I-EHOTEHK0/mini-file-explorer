@@ -9,6 +9,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Input.Platform;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiniFileExplorer.Models;
@@ -35,9 +36,13 @@ public enum SortField
 public partial class MainViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
+    private readonly ISearchService _searchService;
+
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _sizeCalcCts;
     private CancellationTokenSource? _previewCts;
+    private CancellationTokenSource? _searchCts;
+
     private readonly List<FileItemViewModel> _allItems = new();
 
     [ObservableProperty]
@@ -48,6 +53,18 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _filterQuery = string.Empty;
+
+    [ObservableProperty]
+    private string _searchQuery = string.Empty;
+
+    [ObservableProperty]
+    private bool _isSearchMode;
+
+    [ObservableProperty]
+    private bool _isSearching;
+
+    [ObservableProperty]
+    private string _searchStatusText = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<SidebarItemViewModel> _quickAccessItems = new();
@@ -102,13 +119,14 @@ public partial class MainViewModel : ViewModelBase
     public string SizeSortIndicator => CurrentSortField == SortField.Size ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string DateSortIndicator => CurrentSortField == SortField.Date ? (SortAscending ? " ▲" : " ▼") : string.Empty;
 
-    public MainViewModel() : this(new FileSystemService())
+    public MainViewModel() : this(new FileSystemService(), new SearchService())
     {
     }
 
-    public MainViewModel(IFileSystemService fileSystemService)
+    public MainViewModel(IFileSystemService fileSystemService, ISearchService searchService)
     {
         _fileSystemService = fileSystemService;
+        _searchService = searchService;
         _preview = new FilePreviewViewModel(_fileSystemService);
 
         InitSidebar();
@@ -243,6 +261,152 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    public async Task StartSearchAsync()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery))
+            return;
+
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        _sizeCalcCts?.Cancel();
+        IsCalculatingFolderSizes = false;
+
+        IsSearchMode = true;
+        IsSearching = true;
+        SearchStatusText = $"Пошук '{SearchQuery}' у {CurrentPath}...";
+
+        _allItems.Clear();
+        Items.Clear();
+
+        var progress = new Progress<SearchProgressReport>(r =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                SearchStatusText = $"Сканування: {r.ScannedFiles:N0} файлів, {r.ScannedFolders:N0} папок | Знайдено: {r.MatchesCount}";
+                StatusMessage = $"Знайдено збігів: {r.MatchesCount}";
+            });
+        });
+
+        try
+        {
+            var buffer = new List<FileItemViewModel>();
+            var lastFlush = DateTime.UtcNow;
+
+            await Task.Run(async () =>
+            {
+                await foreach (var match in _searchService.SearchAsync(CurrentPath, SearchQuery, progress, token))
+                {
+                    token.ThrowIfCancellationRequested();
+
+                    var vm = new FileItemViewModel(match, _fileSystemService);
+                    lock (buffer)
+                    {
+                        buffer.Add(vm);
+                    }
+
+                    // Post to UI in batches every 150ms or 30 items
+                    if (buffer.Count >= 30 || (DateTime.UtcNow - lastFlush).TotalMilliseconds > 150)
+                    {
+                        List<FileItemViewModel> toPost;
+                        lock (buffer)
+                        {
+                            toPost = new List<FileItemViewModel>(buffer);
+                            buffer.Clear();
+                        }
+                        lastFlush = DateTime.UtcNow;
+
+                        await Dispatcher.UIThread.InvokeAsync(() =>
+                        {
+                            foreach (var item in toPost)
+                            {
+                                _allItems.Add(item);
+                                Items.Add(item);
+                            }
+                        }, DispatcherPriority.Background);
+                    }
+                }
+
+                // Final flush of remaining items
+                if (buffer.Count > 0)
+                {
+                    List<FileItemViewModel> toPost;
+                    lock (buffer)
+                    {
+                        toPost = new List<FileItemViewModel>(buffer);
+                        buffer.Clear();
+                    }
+
+                    await Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        foreach (var item in toPost)
+                        {
+                            _allItems.Add(item);
+                            Items.Add(item);
+                        }
+                    }, DispatcherPriority.Background);
+                }
+            }, token);
+
+            if (!token.IsCancellationRequested)
+            {
+                SearchStatusText = $"Пошук завершено. Знайдено елементів: {_allItems.Count}";
+                StatusMessage = $"Пошук завершено. Знайдено елементів: {_allItems.Count}";
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            SearchStatusText = $"Пошук зупинено. Знайдено: {_allItems.Count}";
+            StatusMessage = "Пошук скасовано";
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Помилка пошуку: {ex.Message}", NotificationSeverity.Error);
+        }
+        finally
+        {
+            IsSearching = false;
+        }
+    }
+
+    [RelayCommand]
+    public void CancelSearch()
+    {
+        _searchCts?.Cancel();
+        IsSearching = false;
+    }
+
+    [RelayCommand]
+    public async Task ExitSearchModeAsync()
+    {
+        CancelSearch();
+        IsSearchMode = false;
+        SearchQuery = string.Empty;
+        await NavigateToAsync(CurrentPath);
+    }
+
+    [RelayCommand]
+    public async Task OpenFileLocationAsync(FileItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item == null) return;
+
+        string? targetDir = item.IsDirectory ? item.FullPath : _fileSystemService.GetParentDirectory(item.FullPath);
+        if (string.IsNullOrWhiteSpace(targetDir) || !_fileSystemService.DirectoryExists(targetDir))
+            return;
+
+        ExitSearchModeCommand.Execute(null);
+        await NavigateToAsync(targetDir);
+
+        var matchInFolder = Items.FirstOrDefault(x => x.FullPath.Equals(item.FullPath, StringComparison.OrdinalIgnoreCase));
+        if (matchInFolder != null)
+        {
+            SelectedItem = matchInFolder;
+        }
+    }
+
+    [RelayCommand]
     public void ToggleSort(string fieldName)
     {
         if (Enum.TryParse<SortField>(fieldName, true, out var field))
@@ -350,6 +514,10 @@ public partial class MainViewModel : ViewModelBase
 
         _sizeCalcCts?.Cancel();
         IsCalculatingFolderSizes = false;
+
+        _searchCts?.Cancel();
+        IsSearching = false;
+        IsSearchMode = false;
 
         _previewCts?.Cancel();
         Preview.Reset();
@@ -486,6 +654,9 @@ public partial class MainViewModel : ViewModelBase
 
     private void ApplyFilterAndSort()
     {
+        if (IsSearchMode)
+            return;
+
         var parentItem = _allItems.FirstOrDefault(x => x.Name == "..");
         var query = FilterQuery.Trim();
 
@@ -558,6 +729,11 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public Task GoUpAsync()
     {
+        if (IsSearchMode)
+        {
+            return ExitSearchModeAsync();
+        }
+
         var parent = _fileSystemService.GetParentDirectory(CurrentPath);
         if (!string.IsNullOrWhiteSpace(parent))
         {
@@ -569,6 +745,12 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public async Task RefreshAsync()
     {
+        if (IsSearchMode)
+        {
+            await StartSearchAsync();
+            return;
+        }
+
         LoadDrives();
 
         if (!_fileSystemService.DirectoryExists(CurrentPath))
@@ -600,6 +782,10 @@ public partial class MainViewModel : ViewModelBase
 
         if (item.IsDirectory)
         {
+            if (IsSearchMode)
+            {
+                IsSearchMode = false;
+            }
             await NavigateToAsync(item.FullPath);
         }
         else

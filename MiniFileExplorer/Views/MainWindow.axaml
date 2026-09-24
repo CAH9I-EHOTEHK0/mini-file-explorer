@@ -18,10 +18,10 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, Auto, *, Auto">
+    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
         <!-- Top Toolbar & Navigation -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8">
-            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto">
                 <!-- Navigation buttons -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" Margin="0,0,8,0">
                     <Button Command="{Binding GoUpCommand}" 
@@ -52,8 +52,36 @@
                     <TextBlock Text="Перейти" />
                 </Button>
 
+                <!-- Recursive Search (Everything-style) Box -->
+                <Grid Grid.Column="3" Width="220" Margin="0,0,8,0" ColumnDefinitions="*, Auto, Auto">
+                    <TextBox Grid.Column="0" 
+                             Text="{Binding SearchQuery, Mode=TwoWay}"
+                             PlaceholderText="🔍 Пошук Everything (*.cs)..."
+                             Padding="6,4"
+                             KeyDown="OnSearchBoxKeyDown"
+                             VerticalAlignment="Center" />
+                    <Button Grid.Column="1" 
+                            Command="{Binding StartSearchCommand}"
+                            IsVisible="{Binding !IsSearching}"
+                            ToolTip.Tip="Шукати рекурсивно по всьому піддереву"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="6,4">
+                        <TextBlock Text="🔍" Foreground="DodgerBlue" />
+                    </Button>
+                    <Button Grid.Column="2" 
+                            Command="{Binding CancelSearchCommand}"
+                            IsVisible="{Binding IsSearching}"
+                            ToolTip.Tip="Зупинити пошук"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Padding="6,4">
+                        <TextBlock Text="⏹" Foreground="Red" />
+                    </Button>
+                </Grid>
+
                 <!-- Calculate Folder Sizes Button -->
-                <Button Grid.Column="3" 
+                <Button Grid.Column="4" 
                         Command="{Binding CalculateFolderSizesCommand}" 
                         IsEnabled="{Binding !IsCalculatingFolderSizes}"
                         ToolTip.Tip="Асинхронно порахувати реальний розмір кожної папки"
@@ -61,12 +89,12 @@
                         Padding="10,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="📊" />
-                        <TextBlock Text="Розміри папок" />
+                        <TextBlock Text="Розміри" />
                     </StackPanel>
                 </Button>
 
                 <!-- Toggle Preview Pane Button -->
-                <ToggleButton Grid.Column="4" 
+                <ToggleButton Grid.Column="5" 
                               IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
                               ToolTip.Tip="Показати / приховати панель попереднього перегляду"
                               Margin="0,0,0,0" 
@@ -100,8 +128,29 @@
             </Grid>
         </Border>
 
+        <!-- Search Mode Info Banner -->
+        <Border Grid.Row="2" 
+                IsVisible="{Binding IsSearchMode}"
+                Background="#1B2A38" 
+                BorderBrush="DodgerBlue" 
+                BorderThickness="0,0,0,1" 
+                Padding="12,6">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+                <TextBlock Grid.Column="0" Text="🔍" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
+                <TextBlock Grid.Column="1" Text="{Binding SearchStatusText}" Foreground="#AADDFF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <ProgressBar Grid.Column="2" IsIndeterminate="True" IsVisible="{Binding IsSearching}" Width="80" Height="4" Margin="10,0" VerticalAlignment="Center" />
+                <Button Grid.Column="3" 
+                        Command="{Binding ExitSearchModeCommand}" 
+                        Padding="10,2" 
+                        Background="#2B3A48"
+                        VerticalAlignment="Center">
+                    <TextBlock Text="✕ Вийти з пошуку" Foreground="White" FontSize="11" />
+                </Button>
+            </Grid>
+        </Border>
+
         <!-- Main Content Area: Left Sidebar + Files Area + Splitter + Preview Pane -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="200" MinWidth="140" MaxWidth="320" />
                 <ColumnDefinition Width="*" MinWidth="350" />
@@ -228,7 +277,7 @@
                         <Grid Grid.Column="5" Margin="8,0,0,0" ColumnDefinitions="*, Auto">
                             <TextBox Grid.Column="0" 
                                      Text="{Binding FilterQuery, Mode=TwoWay}" 
-                                     PlaceholderText="🔍 Фільтр..." 
+                                     PlaceholderText="🔍 Фільтр тут..." 
                                      Padding="6,2" 
                                      FontSize="11" 
                                      VerticalAlignment="Center" />
@@ -261,6 +310,10 @@
                                                       Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).OpenItemCommand, FallbackValue={x:Null}}" 
                                                       CommandParameter="{Binding}" 
                                                       InputGesture="Enter" />
+                                            <MenuItem Header="📍 Відкрити розташування папки" 
+                                                      Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).OpenFileLocationCommand, FallbackValue={x:Null}}" 
+                                                      CommandParameter="{Binding}" 
+                                                      IsVisible="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).IsSearchMode, FallbackValue=False}" />
                                             <Separator />
                                             <MenuItem Header="📋 Копіювати як шлях" 
                                                       Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).CopyPathCommand, FallbackValue={x:Null}}" 
@@ -282,7 +335,7 @@
                                     <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" HorizontalAlignment="Center" />
                                     
                                     <!-- Name -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" ToolTip.Tip="{Binding FullPath}" />
                                     
                                     <!-- Type -->
                                     <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
@@ -387,7 +440,7 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
             <Grid ColumnDefinitions="*, Auto">
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
                 <TextBlock Grid.Column="1" Text="{Binding CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="400" />

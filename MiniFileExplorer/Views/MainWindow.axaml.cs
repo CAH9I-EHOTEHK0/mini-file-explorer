@@ -24,6 +24,18 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnSearchBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            if (DataContext is MainViewModel vm)
+            {
+                vm.StartSearchCommand.Execute(null);
+            }
+            e.Handled = true;
+        }
+    }
+
     private void OnItemListDoubleTapped(object? sender, TappedEventArgs e)
     {
         if (DataContext is MainViewModel vm && vm.SelectedItem != null)
