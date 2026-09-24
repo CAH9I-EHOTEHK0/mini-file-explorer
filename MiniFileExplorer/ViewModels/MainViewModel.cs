@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -28,6 +28,8 @@ public partial class MainViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
     private readonly ISearchService _searchService;
+    private readonly IHashService _hashService;
+    private readonly IBookmarkService _bookmarkService;
     private CancellationTokenSource? _searchCts;
     private CancellationTokenSource? _previewCts;
 
@@ -57,6 +59,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private ObservableCollection<SidebarItemViewModel> _quickAccessItems = new();
+
+    [ObservableProperty]
+    private ObservableCollection<SidebarItemViewModel> _bookmarkItems = new();
 
     [ObservableProperty]
     private ObservableCollection<SidebarItemViewModel> _driveSidebarItems = new();
@@ -105,15 +110,17 @@ public partial class MainViewModel : ViewModelBase
 
     public string CurrentPath => ActivePane.CurrentPath;
 
-    public MainViewModel() : this(new FileSystemService(), new SearchService())
+    public MainViewModel() : this(new FileSystemService(), new SearchService(), new HashService(), new BookmarkService())
     {
     }
 
-    public MainViewModel(IFileSystemService fileSystemService, ISearchService searchService)
+    public MainViewModel(IFileSystemService fileSystemService, ISearchService searchService, IHashService hashService, IBookmarkService bookmarkService)
     {
         _fileSystemService = fileSystemService;
         _searchService = searchService;
-        _preview = new FilePreviewViewModel(_fileSystemService);
+        _hashService = hashService;
+        _bookmarkService = bookmarkService;
+        _preview = new FilePreviewViewModel(_fileSystemService, _hashService);
 
         _leftPane = new FilePaneViewModel(_fileSystemService) { IsActive = true };
         _rightPane = new FilePaneViewModel(_fileSystemService) { IsActive = false };
@@ -124,6 +131,7 @@ public partial class MainViewModel : ViewModelBase
 
         InitSidebar();
         LoadDrives();
+        _ = LoadBookmarksAsync();
 
         var initialDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (string.IsNullOrWhiteSpace(initialDir) || !_fileSystemService.DirectoryExists(initialDir))
@@ -153,6 +161,8 @@ public partial class MainViewModel : ViewModelBase
         pane.RequestCopyBetweenPanes = () => CopyBetweenPanesAsync();
         pane.RequestMoveBetweenPanes = () => MoveBetweenPanesAsync();
         pane.RequestShowProperties = item => ShowPropertiesCommand.Execute(item);
+        pane.RequestComputeSha256 = item => ComputeSha256ForActiveItemAsync(item);
+        pane.RequestBookmark = item => AddBookmarkForFolder(item);
     }
 
     public void SetActivePane(FilePaneViewModel pane)
@@ -680,5 +690,131 @@ public partial class MainViewModel : ViewModelBase
     public Task OpenItemAsync(FileItemViewModel? item)
     {
         return ActivePane.OpenItemAsync(item);
+    }
+
+    // --- Day 11: Bookmarks Management ---
+    public async Task LoadBookmarksAsync()
+    {
+        try
+        {
+            var dtos = await _bookmarkService.LoadBookmarksAsync();
+            BookmarkItems.Clear();
+            foreach (var dto in dtos)
+            {
+                BookmarkItems.Add(new SidebarItemViewModel
+                {
+                    Name = dto.Name,
+                    Path = dto.Path,
+                    IconGlyph = dto.IconGlyph,
+                    IsBookmark = true
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowBanner($"Помилка завантаження закладок: {ex.Message}", NotificationSeverity.Warning);
+        }
+    }
+
+    private async Task SaveBookmarksInternalAsync()
+    {
+        var dtos = BookmarkItems.Select(b => new BookmarkDto(b.Name, b.Path, b.IconGlyph)).ToList();
+        await _bookmarkService.SaveBookmarksAsync(dtos);
+    }
+
+    [RelayCommand]
+    public async Task AddCurrentFolderToBookmarksAsync()
+    {
+        var path = ActivePane.CurrentPath;
+        if (string.IsNullOrWhiteSpace(path) || path == "thispc://" || !_fileSystemService.DirectoryExists(path))
+        {
+            ShowBanner("Неможливо додати поточний шлях до закладок", NotificationSeverity.Warning);
+            return;
+        }
+
+        var existing = BookmarkItems.FirstOrDefault(b => b.Path.Equals(path, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            ShowBanner($"Папка вже є у закладках: {existing.Name}", NotificationSeverity.Info);
+            return;
+        }
+
+        var dirName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrWhiteSpace(dirName)) dirName = path;
+
+        var newBookmark = new SidebarItemViewModel
+        {
+            Name = dirName,
+            Path = path,
+            IconGlyph = "⭐",
+            IsBookmark = true
+        };
+
+        BookmarkItems.Add(newBookmark);
+        await SaveBookmarksInternalAsync();
+        ShowBanner($"Додано в закладки: {dirName}", NotificationSeverity.Info);
+    }
+
+    [RelayCommand]
+    public async Task RemoveBookmarkAsync(SidebarItemViewModel? bookmark)
+    {
+        if (bookmark == null) return;
+        BookmarkItems.Remove(bookmark);
+        await SaveBookmarksInternalAsync();
+        ShowBanner($"Видалено з закладок: {bookmark.Name}", NotificationSeverity.Info);
+    }
+
+    public void AddBookmarkForFolder(FileItemViewModel? item)
+    {
+        item ??= ActivePane.SelectedItem;
+        if (item == null || !item.IsDirectory || item.Name == "..") return;
+
+        var existing = BookmarkItems.FirstOrDefault(b => b.Path.Equals(item.FullPath, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            ShowBanner($"Папка вже є у закладках: {existing.Name}", NotificationSeverity.Info);
+            return;
+        }
+
+        var newBookmark = new SidebarItemViewModel
+        {
+            Name = item.Name,
+            Path = item.FullPath,
+            IconGlyph = "⭐",
+            IsBookmark = true
+        };
+
+        BookmarkItems.Add(newBookmark);
+        _ = SaveBookmarksInternalAsync();
+        ShowBanner($"Додано в закладки: {item.Name}", NotificationSeverity.Info);
+    }
+
+    // --- Day 11: SHA-256 for active item ---
+    public async Task ComputeSha256ForActiveItemAsync(FileItemViewModel? item)
+    {
+        item ??= ActivePane.SelectedItem;
+        if (item == null || item.IsDirectory || item.Name == "..") return;
+
+        if (!IsPreviewPaneVisible)
+        {
+            IsPreviewPaneVisible = true;
+        }
+
+        if (Preview.FilePath != item.FullPath)
+        {
+            _previewCts?.Cancel();
+            _previewCts = new CancellationTokenSource();
+            await Preview.LoadPreviewAsync(item, _previewCts.Token);
+        }
+
+        await Preview.ComputeSha256Command.ExecuteAsync(null);
+    }
+
+    // --- Day 11: Open This PC ---
+    [RelayCommand]
+    public async Task OpenThisPcAsync()
+    {
+        LoadDrives();
+        await ActivePane.NavigateToAsync("thispc://");
     }
 }

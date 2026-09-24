@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MiniFileExplorer.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -180,6 +180,15 @@
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Delete" />
+                                        <Separator />
+                                        <MenuItem Header="🔒 Обчислити SHA-256" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ComputeSha256Command}" 
+                                                  CommandParameter="{Binding}" 
+                                                  IsVisible="{Binding !IsDirectory}" />
+                                        <MenuItem Header="⭐ Додати в закладки" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).AddBookmarkCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  IsVisible="{Binding IsDirectory}" />
                                         <Separator />
                                         <MenuItem Header="ℹ Властивості" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ShowPropertiesCommand}" 

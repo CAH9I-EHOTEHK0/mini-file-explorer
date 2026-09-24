@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MiniFileExplorer.Models;
 using MiniFileExplorer.Services;
@@ -7,7 +7,8 @@ namespace MiniFileExplorer.ViewModels;
 
 public partial class FileItemViewModel : ViewModelBase
 {
-    private readonly FileSystemItem _item;
+    private readonly FileSystemItem? _item;
+    private readonly DriveItem? _drive;
     private readonly IFileSystemService _fileSystemService;
 
     public FileItemViewModel(FileSystemItem item, IFileSystemService fileSystemService)
@@ -16,20 +17,34 @@ public partial class FileItemViewModel : ViewModelBase
         _fileSystemService = fileSystemService;
     }
 
-    public FileSystemItem Model => _item;
+    public FileItemViewModel(DriveItem drive, IFileSystemService fileSystemService)
+    {
+        _drive = drive;
+        _fileSystemService = fileSystemService;
+    }
 
-    public string Name => _item.Name;
-    public string FullPath => _item.FullPath;
-    public bool IsDirectory => _item.IsDirectory;
-    public long? SizeBytes => IsDirectory ? CalculatedSizeBytes : _item.SizeBytes;
-    public DateTime? ModifiedDate => _item.ModifiedDate;
-    public string? Extension => _item.Extension;
+    public FileSystemItem? Model => _item;
+    public DriveItem? DriveModel => _drive;
+    public bool IsDrive => _drive != null;
+
+    public string Name => _drive != null ? _drive.DisplayText : (_item?.Name ?? string.Empty);
+    public string FullPath => _drive != null ? _drive.RootDirectory : (_item?.FullPath ?? string.Empty);
+    public bool IsDirectory => _drive != null || (_item?.IsDirectory ?? false);
+    public long? SizeBytes => _drive != null ? _drive.TotalSize : (IsDirectory ? CalculatedSizeBytes : _item?.SizeBytes);
+    public DateTime? ModifiedDate => _item?.ModifiedDate;
+    public string? Extension => _item?.Extension;
 
     public string FormattedSize
     {
         get
         {
-            if (_item.Name == "..")
+            if (_drive != null)
+            {
+                if (_drive.TotalSize <= 0) return string.Empty;
+                return $"{_fileSystemService.FormatBytes(_drive.AvailableFreeSpace)} вільно з {_fileSystemService.FormatBytes(_drive.TotalSize)}";
+            }
+
+            if (_item?.Name == "..")
                 return string.Empty;
 
             if (IsDirectory)
@@ -48,13 +63,17 @@ public partial class FileItemViewModel : ViewModelBase
 
     public string FormattedDate => ModifiedDate?.ToString("yyyy-MM-dd HH:mm") ?? string.Empty;
 
-    public string TypeDescription => IsDirectory 
-        ? (_item.Name == ".." ? "Батьківська папка" : "Папка") 
-        : (string.IsNullOrWhiteSpace(Extension) ? "Файл" : $"Файл {Extension.ToUpperInvariant()}");
+    public string TypeDescription => _drive != null
+        ? $"Диск ({_drive.DriveType})"
+        : (IsDirectory 
+            ? (_item?.Name == ".." ? "Батьківська папка" : "Папка") 
+            : (string.IsNullOrWhiteSpace(Extension) ? "Файл" : $"Файл {Extension.ToUpperInvariant()}"));
 
-    public string IconGlyph => IsDirectory 
-        ? (_item.Name == ".." ? "⬆" : "📁") 
-        : GetFileIcon(Extension);
+    public string IconGlyph => _drive != null
+        ? (_drive.DriveType.Equals("Removable", StringComparison.OrdinalIgnoreCase) ? "🔌" : "💾")
+        : (IsDirectory 
+            ? (_item?.Name == ".." ? "⬆" : "📁") 
+            : GetFileIcon(Extension));
 
     [ObservableProperty]
     private long? _calculatedSizeBytes;

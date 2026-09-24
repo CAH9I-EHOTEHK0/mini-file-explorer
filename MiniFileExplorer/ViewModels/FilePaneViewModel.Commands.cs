@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
@@ -16,6 +16,8 @@ public partial class FilePaneViewModel
     public Func<Task>? RequestMoveBetweenPanes { get; set; }
     public Action<FileItemViewModel?>? RequestShowProperties { get; set; }
     public Func<FileItemViewModel?, Task>? RequestCopyPath { get; set; }
+    public Func<FileItemViewModel?, Task>? RequestComputeSha256 { get; set; }
+    public Action<FileItemViewModel?>? RequestBookmark { get; set; }
 
     [RelayCommand]
     public void DeleteItem(FileItemViewModel? item)
@@ -64,5 +66,22 @@ public partial class FilePaneViewModel
         item ??= SelectedItem;
         if (item == null || item.Name == "..") return;
         RequestShowProperties?.Invoke(item);
+    }
+
+    [RelayCommand]
+    public async Task ComputeSha256Async(FileItemViewModel? item)
+    {
+        item ??= SelectedItem;
+        if (item == null || item.IsDirectory || item.Name == "..") return;
+        if (RequestComputeSha256 != null)
+        {
+            await RequestComputeSha256.Invoke(item);
+        }
+    }
+
+    [RelayCommand]
+    public void AddBookmark(FileItemViewModel? item)
+    {
+        RequestBookmark?.Invoke(item ?? SelectedItem);
     }
 }

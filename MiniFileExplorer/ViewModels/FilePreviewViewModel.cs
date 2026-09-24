@@ -1,17 +1,28 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Input.Platform;
 using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using MiniFileExplorer.Services;
 
 namespace MiniFileExplorer.ViewModels;
 
+public enum HashVerificationState
+{
+    None,
+    Match,
+    Mismatch
+}
+
 public partial class FilePreviewViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
+    private readonly IHashService _hashService;
+    private CancellationTokenSource? _hashCts;
 
     [ObservableProperty]
     private string _title = "Немає вибору";
@@ -58,13 +69,38 @@ public partial class FilePreviewViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isVisible = true;
 
-    public FilePreviewViewModel(IFileSystemService fileSystemService)
+    // --- SHA-256 Hash Checker (Day 11) ---
+    [ObservableProperty]
+    private string _sha256Hash = string.Empty;
+
+    [ObservableProperty]
+    private bool _isComputingHash;
+
+    [ObservableProperty]
+    private double _hashProgress;
+
+    [ObservableProperty]
+    private string _expectedHash = string.Empty;
+
+    [ObservableProperty]
+    private HashVerificationState _hashVerification = HashVerificationState.None;
+
+    [ObservableProperty]
+    private string _hashStatusMessage = string.Empty;
+
+    public bool CanComputeHash => !IsEmpty && !IsFolder && !string.IsNullOrWhiteSpace(FilePath);
+
+    public FilePreviewViewModel(IFileSystemService fileSystemService, IHashService hashService)
     {
         _fileSystemService = fileSystemService;
+        _hashService = hashService;
     }
 
     public void Reset()
     {
+        _hashCts?.Cancel();
+        _hashCts = null;
+
         Title = "Немає вибору";
         IconGlyph = "📁";
         IsEmpty = true;
@@ -82,6 +118,14 @@ public partial class FilePreviewViewModel : ViewModelBase
         FileSizeInfo = string.Empty;
         FilePath = string.Empty;
         ModifiedDateInfo = string.Empty;
+
+        Sha256Hash = string.Empty;
+        IsComputingHash = false;
+        HashProgress = 0;
+        ExpectedHash = string.Empty;
+        HashVerification = HashVerificationState.None;
+        HashStatusMessage = string.Empty;
+        OnPropertyChanged(nameof(CanComputeHash));
     }
 
     public async Task LoadPreviewAsync(FileItemViewModel? item, CancellationToken cancellationToken)
@@ -97,6 +141,7 @@ public partial class FilePreviewViewModel : ViewModelBase
         FilePath = item.FullPath;
         FileSizeInfo = item.FormattedSize;
         ModifiedDateInfo = item.FormattedDate;
+        OnPropertyChanged(nameof(CanComputeHash));
 
         if (item.IsDirectory)
         {
@@ -122,6 +167,100 @@ public partial class FilePreviewViewModel : ViewModelBase
 
         // Binary / executable / archive / other
         IsBinary = true;
+    }
+
+    partial void OnExpectedHashChanged(string value)
+    {
+        VerifyHash();
+    }
+
+    private void VerifyHash()
+    {
+        var expected = ExpectedHash.Trim();
+        if (string.IsNullOrWhiteSpace(expected) || string.IsNullOrWhiteSpace(Sha256Hash))
+        {
+            HashVerification = HashVerificationState.None;
+            HashStatusMessage = string.Empty;
+            return;
+        }
+
+        if (string.Equals(expected, Sha256Hash, StringComparison.OrdinalIgnoreCase))
+        {
+            HashVerification = HashVerificationState.Match;
+            HashStatusMessage = "✅ Хеші збігаються!";
+        }
+        else
+        {
+            HashVerification = HashVerificationState.Mismatch;
+            HashStatusMessage = "❌ Хеші НЕ збігаються!";
+        }
+    }
+
+    [RelayCommand]
+    public async Task ComputeSha256Async()
+    {
+        if (string.IsNullOrWhiteSpace(FilePath) || !File.Exists(FilePath))
+            return;
+
+        _hashCts?.Cancel();
+        _hashCts = new CancellationTokenSource();
+        var ct = _hashCts.Token;
+
+        IsComputingHash = true;
+        HashProgress = 0;
+        Sha256Hash = string.Empty;
+        HashVerification = HashVerificationState.None;
+        HashStatusMessage = "Обчислення SHA-256...";
+
+        try
+        {
+            var progress = new Progress<double>(p => HashProgress = p);
+            var hash = await _hashService.ComputeSha256Async(FilePath, progress, ct);
+            if (!ct.IsCancellationRequested)
+            {
+                Sha256Hash = hash;
+                HashStatusMessage = "Хеш успішно обчислено";
+                VerifyHash();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            HashStatusMessage = "Обчислення скасовано";
+        }
+        catch (Exception ex)
+        {
+            HashStatusMessage = $"Помилка: {ex.Message}";
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                IsComputingHash = false;
+            }
+        }
+    }
+
+    [RelayCommand]
+    public async Task CopySha256Async()
+    {
+        if (string.IsNullOrWhiteSpace(Sha256Hash)) return;
+
+        try
+        {
+            var clipboard = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+                ? desktop.MainWindow?.Clipboard
+                : null;
+
+            if (clipboard != null)
+            {
+                await clipboard.SetTextAsync(Sha256Hash);
+                HashStatusMessage = "📋 Хеш скопійовано в буфер!";
+            }
+        }
+        catch
+        {
+            // Ignore clipboard errors
+        }
     }
 
     private async Task LoadTextAsync(string fullPath, CancellationToken cancellationToken)

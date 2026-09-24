@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
         xmlns:views="using:MiniFileExplorer.Views"
@@ -156,6 +156,50 @@
                     Padding="4">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Spacing="8">
+                        <!-- Bookmarks (Day 11) -->
+                        <Grid ColumnDefinitions="*, Auto" Margin="8,6,8,2">
+                            <TextBlock Grid.Column="0" Text="ЗАКЛАДКИ" FontSize="11" FontWeight="Bold" Foreground="Gray" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" 
+                                    Command="{Binding AddCurrentFolderToBookmarksCommand}" 
+                                    ToolTip.Tip="Додати поточну папку в закладки"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="4,2">
+                                <TextBlock Text="⭐+" FontSize="11" Foreground="#FFD700" />
+                            </Button>
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding BookmarkItems}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SidebarItemViewModel">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="2,1">
+                                        <Button Grid.Column="0" 
+                                                Background="Transparent" 
+                                                HorizontalAlignment="Stretch" 
+                                                HorizontalContentAlignment="Left"
+                                                Padding="8,5"
+                                                Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
+                                                CommandParameter="{Binding Path}"
+                                                ToolTip.Tip="{Binding Path}">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Grid.Column="1" 
+                                                Background="Transparent" 
+                                                BorderThickness="0" 
+                                                Padding="6,4"
+                                                Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).RemoveBookmarkCommand, FallbackValue={x:Null}}"
+                                                CommandParameter="{Binding}"
+                                                ToolTip.Tip="Видалити закладку">
+                                            <TextBlock Text="✕" FontSize="10" Foreground="Gray" />
+                                        </Button>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Quick Access -->
                         <TextBlock Text="ШВИДКИЙ ДОСТУП" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,6,8,2" />
                         <ItemsControl ItemsSource="{Binding QuickAccessItems}">
                             <ItemsControl.ItemTemplate>
@@ -175,7 +219,18 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,8,8,2" />
+                        <!-- This PC Header / Button (User Request) -->
+                        <Button Background="Transparent" 
+                                HorizontalAlignment="Stretch" 
+                                HorizontalContentAlignment="Left"
+                                Padding="8,6" Margin="2,4,2,2"
+                                Command="{Binding OpenThisPcCommand}"
+                                ToolTip.Tip="Відкрити огляд дисків та пристроїв (Цей ПК)">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="💻" FontSize="16" VerticalAlignment="Center" />
+                                <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="DodgerBlue" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <ItemsControl ItemsSource="{Binding DriveSidebarItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SidebarItemViewModel">
@@ -233,7 +288,7 @@
                     BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
                     BorderThickness="1,0,0,0">
                 
-                <Grid RowDefinitions="Auto, Auto, *">
+                <Grid RowDefinitions="Auto, Auto, *, Auto">
                     <!-- Preview Header -->
                     <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" Padding="10,8" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1">
                         <Grid ColumnDefinitions="Auto, *">
@@ -296,6 +351,68 @@
                             </StackPanel>
                         </Border>
                     </Grid>
+
+                    <!-- SHA-256 Hash Checker Panel (Day 11) -->
+                    <Border Grid.Row="3" 
+                            IsVisible="{Binding Preview.CanComputeHash}"
+                            Background="{DynamicResource SystemControlBackgroundAltHighBrush}" 
+                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                            BorderThickness="0,1,0,0" 
+                            Padding="10">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Grid.Column="0" Text="🔒 ХЕШ SHA-256" FontSize="11" FontWeight="Bold" Foreground="Gray" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" 
+                                        Command="{Binding Preview.ComputeSha256Command}"
+                                        IsEnabled="{Binding !Preview.IsComputingHash}"
+                                        Padding="8,3"
+                                        FontSize="11">
+                                    <TextBlock Text="{Binding Preview.IsComputingHash, Converter={x:Null}, FallbackValue='Обчислити'}" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Progress Bar while computing -->
+                            <ProgressBar Value="{Binding Preview.HashProgress}" 
+                                         Maximum="100" 
+                                         Height="4" 
+                                         IsVisible="{Binding Preview.IsComputingHash}" />
+
+                            <!-- Hash Output with Copy button -->
+                            <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding Preview.Sha256Hash.Length}">
+                                <TextBox Grid.Column="0" 
+                                         Text="{Binding Preview.Sha256Hash}" 
+                                         IsReadOnly="True" 
+                                         FontSize="10" 
+                                         FontFamily="Consolas, monospace" 
+                                         Padding="4,3" 
+                                         TextWrapping="Wrap" />
+                                <Button Grid.Column="1" 
+                                        Command="{Binding Preview.CopySha256Command}" 
+                                        ToolTip.Tip="Скопіювати хеш у буфер"
+                                        Margin="4,0,0,0" 
+                                        Padding="6,3">
+                                    <TextBlock Text="📋" FontSize="12" />
+                                </Button>
+                            </Grid>
+
+                            <!-- Hash Verification Input -->
+                            <StackPanel Spacing="4" IsVisible="{Binding Preview.Sha256Hash.Length}">
+                                <TextBlock Text="Перевірка хешу (вставте очікуваний):" FontSize="10" Foreground="Gray" />
+                                <TextBox Text="{Binding Preview.ExpectedHash, Mode=TwoWay}" 
+                                         PlaceholderText="Очікуваний SHA-256..." 
+                                         FontSize="10" 
+                                         FontFamily="Consolas, monospace" 
+                                         Padding="4,3" />
+                            </StackPanel>
+
+                            <!-- Verification Message -->
+                            <TextBlock Text="{Binding Preview.HashStatusMessage}" 
+                                       FontSize="11" 
+                                       FontWeight="SemiBold" 
+                                       IsVisible="{Binding Preview.HashStatusMessage.Length}" 
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

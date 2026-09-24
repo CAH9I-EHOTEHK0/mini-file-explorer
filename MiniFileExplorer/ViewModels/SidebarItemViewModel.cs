@@ -1,4 +1,4 @@
-﻿namespace MiniFileExplorer.ViewModels;
+namespace MiniFileExplorer.ViewModels;
 
 public class SidebarItemViewModel : ViewModelBase
 {
@@ -7,4 +7,6 @@ public class SidebarItemViewModel : ViewModelBase
     public required string IconGlyph { get; init; }
     public string? Subtitle { get; init; }
     public bool IsDrive { get; init; }
+    public bool IsBookmark { get; init; }
+    public bool IsThisPc { get; init; }
 }

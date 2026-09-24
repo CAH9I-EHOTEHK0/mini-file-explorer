@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -207,15 +207,6 @@ public partial class FilePaneViewModel : ViewModelBase
 
         targetPath = targetPath.Trim('\"', '\'').Trim();
 
-        char[] invalidChars = Path.GetInvalidPathChars();
-        if (targetPath.IndexOfAny(invalidChars) >= 0)
-        {
-            OnNotification?.Invoke($"Шлях містить неприпустимі символи: '{targetPath}'", NotificationSeverity.Error);
-            StatusMessage = "Помилка введення шляху";
-            PathInput = CurrentPath;
-            return;
-        }
-
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var token = _loadCts.Token;
@@ -225,6 +216,35 @@ public partial class FilePaneViewModel : ViewModelBase
 
         IsLoading = true;
         StatusMessage = "Завантаження...";
+
+        if (string.Equals(targetPath, "thispc://", StringComparison.OrdinalIgnoreCase))
+        {
+            CurrentPath = "thispc://";
+            PathInput = "Цей ПК";
+            CanGoUp = false;
+
+            _allItems.Clear();
+            var drives = _fileSystemService.GetDrives();
+            foreach (var d in drives)
+            {
+                _allItems.Add(new FileItemViewModel(d, _fileSystemService));
+            }
+
+            ApplyFilterAndSort();
+            IsLoading = false;
+            StatusMessage = $"Дисків: {_allItems.Count}";
+            return;
+        }
+
+        char[] invalidChars = Path.GetInvalidPathChars();
+        if (targetPath.IndexOfAny(invalidChars) >= 0)
+        {
+            OnNotification?.Invoke($"Шлях містить неприпустимі символи: '{targetPath}'", NotificationSeverity.Error);
+            StatusMessage = "Помилка введення шляху";
+            PathInput = CurrentPath;
+            IsLoading = false;
+            return;
+        }
 
         try
         {
@@ -291,23 +311,43 @@ public partial class FilePaneViewModel : ViewModelBase
     [RelayCommand]
     public Task NavigateFromInputAsync()
     {
+        var input = PathInput.Trim();
+        if (input.Equals("Цей ПК", StringComparison.OrdinalIgnoreCase) || input.Equals("thispc://", StringComparison.OrdinalIgnoreCase))
+        {
+            return NavigateToAsync("thispc://");
+        }
         return NavigateToAsync(PathInput);
     }
 
     [RelayCommand]
     public Task GoUpAsync()
     {
+        if (CurrentPath.Equals("thispc://", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.CompletedTask;
+        }
+
         var parent = _fileSystemService.GetParentDirectory(CurrentPath);
         if (!string.IsNullOrWhiteSpace(parent))
         {
             return NavigateToAsync(parent);
         }
-        return Task.CompletedTask;
+        else
+        {
+            // If already at drive root, going up takes you to "Цей ПК"
+            return NavigateToAsync("thispc://");
+        }
     }
 
     [RelayCommand]
     public async Task RefreshAsync()
     {
+        if (CurrentPath.Equals("thispc://", StringComparison.OrdinalIgnoreCase))
+        {
+            await NavigateToAsync("thispc://");
+            return;
+        }
+
         if (!_fileSystemService.DirectoryExists(CurrentPath))
         {
             OnNotification?.Invoke("Поточний каталог більше не існує. Повертаємось до батьківської папки.", NotificationSeverity.Warning);
@@ -319,7 +359,7 @@ public partial class FilePaneViewModel : ViewModelBase
 
             if (string.IsNullOrWhiteSpace(fallback))
             {
-                fallback = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                fallback = "thispc://";
             }
 
             await NavigateToAsync(fallback);
