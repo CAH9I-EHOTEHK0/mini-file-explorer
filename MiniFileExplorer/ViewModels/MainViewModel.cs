@@ -76,6 +76,33 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private NotificationSeverity _bannerSeverity = NotificationSeverity.None;
 
+    // --- Modal Confirmation / Input Overlay ---
+    [ObservableProperty]
+    private bool _isModalOpen;
+
+    [ObservableProperty]
+    private string _modalTitle = string.Empty;
+
+    [ObservableProperty]
+    private string _modalMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _modalIcon = "⚠️";
+
+    [ObservableProperty]
+    private bool _isModalInputMode;
+
+    [ObservableProperty]
+    private string _modalInputValue = string.Empty;
+
+    [ObservableProperty]
+    private string _modalConfirmButtonText = "Підтвердити";
+
+    [ObservableProperty]
+    private bool _isModalDestructive;
+
+    private Func<Task>? _modalConfirmAction;
+
     public string CurrentPath => ActivePane.CurrentPath;
 
     public MainViewModel() : this(new FileSystemService(), new SearchService())
@@ -120,6 +147,12 @@ public partial class MainViewModel : ViewModelBase
                 _ = Preview.LoadPreviewAsync(item, _previewCts.Token);
             }
         };
+
+        pane.RequestDelete = item => DeleteItemCommand.Execute(item);
+        pane.RequestCreateFolder = () => CreateFolderCommand.Execute(null);
+        pane.RequestCopyBetweenPanes = () => CopyBetweenPanesAsync();
+        pane.RequestMoveBetweenPanes = () => MoveBetweenPanesAsync();
+        pane.RequestShowProperties = item => ShowPropertiesCommand.Execute(item);
     }
 
     public void SetActivePane(FilePaneViewModel pane)
@@ -178,6 +211,28 @@ public partial class MainViewModel : ViewModelBase
 
         string destPath = Path.Combine(targetPane.CurrentPath, item.Name);
 
+        bool destExists = item.IsDirectory 
+            ? _fileSystemService.DirectoryExists(destPath) 
+            : File.Exists(destPath);
+
+        if (destExists)
+        {
+            ShowConfirmationModal(
+                title: "Перезаписати файл / папку?",
+                message: $"'{item.Name}' вже існує в цільовій папці:\n{targetPane.CurrentPath}\n\nБажаєте перезаписати?",
+                icon: "⚠️",
+                confirmText: "Перезаписати",
+                isDestructive: true,
+                onConfirm: async () => await ExecuteCopyAsync(item, destPath, targetPane)
+            );
+            return;
+        }
+
+        await ExecuteCopyAsync(item, destPath, targetPane);
+    }
+
+    private async Task ExecuteCopyAsync(FileItemViewModel item, string destPath, FilePaneViewModel targetPane)
+    {
         try
         {
             if (item.IsDirectory)
@@ -211,10 +266,33 @@ public partial class MainViewModel : ViewModelBase
 
         string destPath = Path.Combine(targetPane.CurrentPath, item.Name);
 
+        bool destExists = item.IsDirectory 
+            ? _fileSystemService.DirectoryExists(destPath) 
+            : File.Exists(destPath);
+
+        if (destExists)
+        {
+            ShowConfirmationModal(
+                title: "Перезаписати при переміщенні?",
+                message: $"'{item.Name}' вже існує в цільовій папці:\n{targetPane.CurrentPath}\n\nБажаєте замінити і перемістити?",
+                icon: "⚠️",
+                confirmText: "Замінити",
+                isDestructive: true,
+                onConfirm: async () => await ExecuteMoveAsync(item, destPath, sourcePane, targetPane)
+            );
+            return;
+        }
+
+        await ExecuteMoveAsync(item, destPath, sourcePane, targetPane);
+    }
+
+    private async Task ExecuteMoveAsync(FileItemViewModel item, string destPath, FilePaneViewModel sourcePane, FilePaneViewModel targetPane)
+    {
         try
         {
             if (item.IsDirectory)
             {
+                if (Directory.Exists(destPath)) Directory.Delete(destPath, true);
                 Directory.Move(item.FullPath, destPath);
             }
             else
@@ -479,33 +557,113 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public async Task DeleteItemAsync(FileItemViewModel? item)
+    public void DeleteItem(FileItemViewModel? item)
     {
         item ??= ActivePane.SelectedItem;
         if (item == null || item.Name == "..") return;
 
-        try
-        {
-            if (item.IsDirectory)
-            {
-                Directory.Delete(item.FullPath, true);
-            }
-            else
-            {
-                File.Delete(item.FullPath);
-            }
+        string targetType = item.IsDirectory ? "папку" : "файл";
+        string warningExtra = item.IsDirectory ? "\n⚠️ Усі файли та підпапки буде безповоротно видалено!" : "";
 
-            ShowBanner($"Видалено: {item.Name}", NotificationSeverity.Info);
-            await ActivePane.RefreshAsync();
-        }
-        catch (UnauthorizedAccessException)
+        ShowConfirmationModal(
+            title: $"Видалити {targetType}?",
+            message: $"Ви дійсно бажаєте видалити {targetType} '{item.Name}'?{warningExtra}",
+            icon: "🗑",
+            confirmText: "Видалити",
+            isDestructive: true,
+            onConfirm: async () =>
+            {
+                try
+                {
+                    if (item.IsDirectory)
+                    {
+                        Directory.Delete(item.FullPath, true);
+                    }
+                    else
+                    {
+                        File.Delete(item.FullPath);
+                    }
+
+                    ShowBanner($"Видалено: {item.Name}", NotificationSeverity.Info);
+                    await ActivePane.RefreshAsync();
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    ShowBanner($"Не вдалося видалити '{item.Name}': відмовлено в доступі", NotificationSeverity.Error);
+                }
+                catch (Exception ex)
+                {
+                    ShowBanner($"Помилка видалення: {ex.Message}", NotificationSeverity.Error);
+                }
+            }
+        );
+    }
+
+    [RelayCommand]
+    public void CreateFolder()
+    {
+        ModalTitle = "Створити нову папку";
+        ModalMessage = $"Створення папки в:\n{ActivePane.CurrentPath}";
+        ModalIcon = "📁";
+        ModalConfirmButtonText = "Створити";
+        IsModalDestructive = false;
+        IsModalInputMode = true;
+        ModalInputValue = "Нова папка";
+        _modalConfirmAction = async () =>
         {
-            ShowBanner($"Не вдалося видалити '{item.Name}': відмовлено в доступі", NotificationSeverity.Error);
-        }
-        catch (Exception ex)
+            var folderName = ModalInputValue.Trim();
+            if (string.IsNullOrWhiteSpace(folderName)) return;
+
+            string newPath = Path.Combine(ActivePane.CurrentPath, folderName);
+            try
+            {
+                if (_fileSystemService.DirectoryExists(newPath))
+                {
+                    ShowBanner($"Папка з іменем '{folderName}' вже існує", NotificationSeverity.Warning);
+                    return;
+                }
+
+                Directory.CreateDirectory(newPath);
+                ShowBanner($"Створено папку: {folderName}", NotificationSeverity.Info);
+                await ActivePane.RefreshAsync();
+            }
+            catch (Exception ex)
+            {
+                ShowBanner($"Помилка створення папки: {ex.Message}", NotificationSeverity.Error);
+            }
+        };
+        IsModalOpen = true;
+    }
+
+    public void ShowConfirmationModal(string title, string message, string icon, string confirmText, bool isDestructive, Func<Task> onConfirm)
+    {
+        ModalTitle = title;
+        ModalMessage = message;
+        ModalIcon = icon;
+        ModalConfirmButtonText = confirmText;
+        IsModalDestructive = isDestructive;
+        IsModalInputMode = false;
+        ModalInputValue = string.Empty;
+        _modalConfirmAction = onConfirm;
+        IsModalOpen = true;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmModalAsync()
+    {
+        IsModalOpen = false;
+        if (_modalConfirmAction != null)
         {
-            ShowBanner($"Помилка видалення: {ex.Message}", NotificationSeverity.Error);
+            await _modalConfirmAction.Invoke();
+            _modalConfirmAction = null;
         }
+    }
+
+    [RelayCommand]
+    public void CancelModal()
+    {
+        IsModalOpen = false;
+        _modalConfirmAction = null;
     }
 
     [RelayCommand]

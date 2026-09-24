@@ -29,7 +29,31 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel vm)
             return;
 
-        if (e.Key == Key.Tab)
+        if (vm.IsModalOpen)
+        {
+            if (e.Key == Key.Escape)
+            {
+                vm.CancelModalCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Enter)
+            {
+                vm.ConfirmModalCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+        }
+
+        if (e.Key == Key.F7)
+        {
+            if (vm.CreateFolderCommand.CanExecute(null))
+            {
+                vm.CreateFolderCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.Tab)
         {
             if (vm.IsDualPaneMode)
             {

@@ -1,10 +1,11 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MiniFileExplorer.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="500"
              x:Class="MiniFileExplorer.Views.FilePaneView"
+             x:Name="PaneRoot"
              x:DataType="vm:FilePaneViewModel">
 
     <Border BorderBrush="{Binding IsActive, Converter={x:Null}, FallbackValue=Transparent}" 
@@ -154,37 +155,34 @@
                             <Grid ColumnDefinitions="26, *, 85, 80, 115, 100" Margin="0,1">
                                 <!-- Context Menu on Right Click -->
                                 <Grid.ContextMenu>
-                                    <ContextMenu x:CompileBindings="False">
+                                    <ContextMenu>
                                         <MenuItem Header="📂 Відкрити" 
-                                                  Command="{Binding DataContext.OpenItemCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).OpenItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Enter" />
-                                        <MenuItem Header="📍 Відкрити розташування папки" 
-                                                  Command="{Binding DataContext.OpenFileLocationCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
-                                                  CommandParameter="{Binding}" 
-                                                  IsVisible="{Binding DataContext.IsSearchMode, ElementName=MainWindowRoot, FallbackValue=False}" />
+                                        <MenuItem Header="📁 Створити папку" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CreateFolderCommand}" 
+                                                  InputGesture="F7" />
                                         <Separator />
                                         <MenuItem Header="📋 Копіювати в іншу панель (F5)" 
-                                                  Command="{Binding DataContext.CopyBetweenPanesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
-                                                  IsVisible="{Binding DataContext.IsDualPaneMode, ElementName=MainWindowRoot, FallbackValue=False}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyBetweenPanesCommand}" 
                                                   InputGesture="F5" />
                                         <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
-                                                  Command="{Binding DataContext.MoveBetweenPanesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
-                                                  IsVisible="{Binding DataContext.IsDualPaneMode, ElementName=MainWindowRoot, FallbackValue=False}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).MoveBetweenPanesCommand}" 
                                                   InputGesture="F6" />
                                         <Separator />
                                         <MenuItem Header="📋 Копіювати як шлях" 
-                                                  Command="{Binding DataContext.CopyPathCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyPathCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Ctrl+Shift+C" />
                                         <Separator />
                                         <MenuItem Header="🗑 Видалити" 
-                                                  Command="{Binding DataContext.DeleteItemCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Delete" />
                                         <Separator />
                                         <MenuItem Header="ℹ Властивості" 
-                                                  Command="{Binding DataContext.ShowPropertiesCommand, ElementName=MainWindowRoot, FallbackValue={x:Null}}" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ShowPropertiesCommand}" 
                                                   CommandParameter="{Binding}" />
                                     </ContextMenu>
                                 </Grid.ContextMenu>

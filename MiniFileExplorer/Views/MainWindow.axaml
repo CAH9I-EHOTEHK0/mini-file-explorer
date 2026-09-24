@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
         xmlns:views="using:MiniFileExplorer.Views"
@@ -63,14 +63,21 @@
                     </Button>
                 </Grid>
 
-                <!-- Dual Pane Copy / Move quick actions (visible in dual mode) -->
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="0,0,10,0" IsVisible="{Binding IsDualPaneMode}">
+                <!-- Dual Pane Copy / Move quick actions (visible in dual mode) + F7 New Folder -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="0,0,10,0">
+                    <Button Command="{Binding CreateFolderCommand}" 
+                            ToolTip.Tip="Створити нову папку в активній панелі (F7)" 
+                            Padding="8,4">
+                        <TextBlock Text="📁 F7 Нова папка" />
+                    </Button>
                     <Button Command="{Binding CopyBetweenPanesCommand}" 
+                            IsVisible="{Binding IsDualPaneMode}"
                             ToolTip.Tip="Скопіювати в сусідню панель (F5)" 
                             Padding="8,4">
                         <TextBlock Text="📋 F5 Копіювати" />
                     </Button>
                     <Button Command="{Binding MoveBetweenPanesCommand}" 
+                            IsVisible="{Binding IsDualPaneMode}"
                             ToolTip.Tip="Перемістити в сусідню панель (F6)" 
                             Padding="8,4">
                         <TextBlock Text="🚚 F6 Перемістити" />
@@ -301,5 +308,66 @@
                 <TextBlock Grid.Column="2" Text="{Binding ActivePane.CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="450" />
             </Grid>
         </Border>
+
+        <!-- Modern Confirmation & Input Modal Overlay -->
+        <Grid Grid.Row="0" Grid.RowSpan="5" 
+              Background="#88000000" 
+              IsVisible="{Binding IsModalOpen}"
+              HorizontalAlignment="Stretch" 
+              VerticalAlignment="Stretch">
+            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                    BorderThickness="1"
+                    CornerRadius="10"
+                    Padding="24"
+                    MaxWidth="460"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    BoxShadow="0 10 30 0 #55000000">
+                <StackPanel Spacing="16">
+                    <!-- Modal Header with Icon & Title -->
+                    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ModalIcon}" FontSize="24" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <!-- Message Body -->
+                    <TextBlock Text="{Binding ModalMessage}" 
+                               FontSize="13" 
+                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                               TextWrapping="Wrap" 
+                               LineHeight="18" />
+
+                    <!-- Input Box (for Create Folder) -->
+                    <TextBox Text="{Binding ModalInputValue, Mode=TwoWay}"
+                             IsVisible="{Binding IsModalInputMode}"
+                             FontSize="13"
+                             Padding="8,6"
+                             PlaceholderText="Введіть назву..." />
+
+                    <!-- Action Buttons -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,8,0,0">
+                        <Button Command="{Binding CancelModalCommand}" 
+                                Content="Скасувати" 
+                                Padding="14,6" 
+                                Background="Transparent" 
+                                BorderThickness="1" />
+                        <Button Command="{Binding ConfirmModalCommand}" 
+                                Content="{Binding ModalConfirmButtonText}" 
+                                Padding="16,6"
+                                FontWeight="SemiBold"
+                                Background="{Binding IsModalDestructive, Converter={x:Null}, FallbackValue=DodgerBlue}"
+                                Classes.destructive="{Binding IsModalDestructive}">
+                            <Button.Styles>
+                                <Style Selector="Button.destructive">
+                                    <Setter Property="Background" Value="#D9383A" />
+                                    <Setter Property="Foreground" Value="White" />
+                                </Style>
+                            </Button.Styles>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
