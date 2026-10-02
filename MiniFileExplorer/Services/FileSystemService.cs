@@ -77,10 +77,18 @@ public class FileSystemService : IFileSystemService
                 items.Add(FileSystemItem.CreateParentDirectory(parent.FullName));
             }
 
+            var enumerationOptions = new EnumerationOptions
+            {
+                IgnoreInaccessible = true,
+                AttributesToSkip = 0,
+                RecurseSubdirectories = false,
+                ReturnSpecialDirectories = false
+            };
+
             IEnumerable<FileSystemInfo> fileSystemInfos;
             try
             {
-                fileSystemInfos = dirInfo.EnumerateFileSystemInfos();
+                fileSystemInfos = dirInfo.EnumerateFileSystemInfos("*", enumerationOptions);
             }
             catch (UnauthorizedAccessException)
             {

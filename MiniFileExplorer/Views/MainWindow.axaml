@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui"
+﻿<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
         xmlns:views="using:MiniFileExplorer.Views"
@@ -88,12 +88,25 @@
                 <ToggleButton Grid.Column="3" 
                               IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
                               ToolTip.Tip="Показати / приховати панель попереднього перегляду"
+                              Margin="0,0,6,0"
                               Padding="10,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="👁" />
                         <TextBlock Text="Прев'ю" />
                     </StackPanel>
                 </ToggleButton>
+
+                <!-- Day 12: Stress Test (10 000 files) Button -->
+                <Button Grid.Column="4" 
+                        Command="{Binding RunStressTestCommand}"
+                        IsEnabled="{Binding !IsRunningStressTest}"
+                        ToolTip.Tip="Стрес-тест (День 12): створення 10 000 файлів для перевірки віртуалізації та стабільності"
+                        Padding="8,4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Text="🧪" />
+                        <TextBlock Text="Тест 10k" />
+                    </StackPanel>
+                </Button>
             </Grid>
         </Border>
 

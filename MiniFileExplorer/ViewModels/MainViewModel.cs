@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -56,6 +56,9 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string _searchStatusText = string.Empty;
+
+    [ObservableProperty]
+    private bool _isRunningStressTest;
 
     [ObservableProperty]
     private ObservableCollection<SidebarItemViewModel> _quickAccessItems = new();
@@ -816,5 +819,52 @@ public partial class MainViewModel : ViewModelBase
     {
         LoadDrives();
         await ActivePane.NavigateToAsync("thispc://");
+    }
+
+    // --- Day 12: Stress Test (10 000 Files) ---
+    [RelayCommand]
+    public async Task RunStressTestAsync()
+    {
+        if (IsRunningStressTest) return;
+
+        string stressDir = Path.Combine(Path.GetTempPath(), "MiniFileExplorer_StressTest_10k");
+        int targetFileCount = 10000;
+
+        ShowConfirmationModal(
+            title: "Запустити стрес-тест (10 000 файлів)?",
+            message: $"Буде створено тестовий каталог у системному Temp:\n{stressDir}\nз {targetFileCount:N0} файлами для перевірки швидкодії віртуалізації, сортування та стабільності пам'яті.\n\nПісля завершення та огляду папку можна буде очистити в 1 клік.",
+            icon: "🧪",
+            confirmText: "Почати тест",
+            isDestructive: false,
+            onConfirm: async () =>
+            {
+                IsRunningStressTest = true;
+                ShowBanner("Генерація 10 000 тестових файлів... Будь ласка, зачекайте...", NotificationSeverity.Info);
+
+                var sw = Stopwatch.StartNew();
+
+                await Task.Run(() =>
+                {
+                    if (Directory.Exists(stressDir))
+                    {
+                        try { Directory.Delete(stressDir, true); } catch { }
+                    }
+                    Directory.CreateDirectory(stressDir);
+
+                    // Batch create files efficiently
+                    for (int i = 1; i <= targetFileCount; i++)
+                    {
+                        string filePath = Path.Combine(stressDir, $"stress_test_item_{i:D5}.txt");
+                        File.WriteAllText(filePath, $"Тестовий файл #{i} для стрес-тестування MiniFileExplorer\nCreated: {DateTime.Now:O}");
+                    }
+                });
+
+                sw.Stop();
+                IsRunningStressTest = false;
+
+                ShowBanner($"Створено {targetFileCount:N0} файлів за {sw.ElapsedMilliseconds} мс. Відкриваємо папку...", NotificationSeverity.Info);
+                await ActivePane.NavigateToAsync(stressDir);
+            }
+        );
     }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MiniFileExplorer.Models;
@@ -28,6 +29,9 @@ public partial class FilePaneViewModel : ViewModelBase
     private CancellationTokenSource? _loadCts;
     private CancellationTokenSource? _sizeCalcCts;
     private readonly List<FileItemViewModel> _allItems = new();
+    private FileSystemWatcher? _watcher;
+    private readonly System.Timers.Timer _watcherDebounceTimer = new(350) { AutoReset = false };
+    private readonly object _watcherLock = new();
 
     public event Action<string, NotificationSeverity>? OnNotification;
     public event Action<FileItemViewModel?>? OnSelectionChanged;
@@ -76,6 +80,14 @@ public partial class FilePaneViewModel : ViewModelBase
     public FilePaneViewModel(IFileSystemService fileSystemService)
     {
         _fileSystemService = fileSystemService;
+        _watcherDebounceTimer.Elapsed += async (_, _) =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
+                // Refresh silently without showing full-page loading blink
+                await SilentRefreshAsync();
+            });
+        };
     }
 
     partial void OnSelectedItemChanged(FileItemViewModel? value)
@@ -219,6 +231,7 @@ public partial class FilePaneViewModel : ViewModelBase
 
         if (string.Equals(targetPath, "thispc://", StringComparison.OrdinalIgnoreCase))
         {
+            StopWatcher();
             CurrentPath = "thispc://";
             PathInput = "Цей ПК";
             CanGoUp = false;
@@ -264,6 +277,7 @@ public partial class FilePaneViewModel : ViewModelBase
             }
 
             ApplyFilterAndSort();
+            StartWatcher(targetPath);
         }
         catch (UnauthorizedAccessException)
         {
@@ -401,6 +415,134 @@ public partial class FilePaneViewModel : ViewModelBase
                 OnNotification?.Invoke($"Не вдалося запустити файл '{item.Name}': {ex.Message}", NotificationSeverity.Error);
             }
         }
+    }
+
+    public async Task SilentRefreshAsync()
+    {
+        if (CurrentPath.Equals("thispc://", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (!_fileSystemService.DirectoryExists(CurrentPath))
+        {
+            // The directory was removed or renamed externally!
+            StopWatcher();
+            OnNotification?.Invoke("Каталог було змінено або видалено ззовні. Повертаємось до доступної папки.", NotificationSeverity.Warning);
+
+            var fallback = _fileSystemService.GetParentDirectory(CurrentPath);
+            while (!string.IsNullOrWhiteSpace(fallback) && !_fileSystemService.DirectoryExists(fallback))
+            {
+                fallback = _fileSystemService.GetParentDirectory(fallback);
+            }
+
+            if (string.IsNullOrWhiteSpace(fallback))
+            {
+                fallback = "thispc://";
+            }
+
+            await NavigateToAsync(fallback);
+            return;
+        }
+
+        try
+        {
+            var rawItems = await _fileSystemService.GetItemsAsync(CurrentPath);
+            var selectedPath = SelectedItem?.FullPath;
+
+            _allItems.Clear();
+            foreach (var item in rawItems)
+            {
+                _allItems.Add(new FileItemViewModel(item, _fileSystemService));
+            }
+
+            ApplyFilterAndSort();
+
+            if (!string.IsNullOrWhiteSpace(selectedPath))
+            {
+                SelectedItem = Items.FirstOrDefault(x => x.FullPath.Equals(selectedPath, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+        catch
+        {
+            // Degrade silently if temporary locked
+        }
+    }
+
+    private void StartWatcher(string path)
+    {
+        StopWatcher();
+
+        if (string.IsNullOrWhiteSpace(path) || path.Equals("thispc://", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        try
+        {
+            if (!_fileSystemService.DirectoryExists(path))
+                return;
+
+            lock (_watcherLock)
+            {
+                _watcher = new FileSystemWatcher(path)
+                {
+                    NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.Size | NotifyFilters.LastWrite,
+                    IncludeSubdirectories = false,
+                    EnableRaisingEvents = true
+                };
+
+                _watcher.Created += OnFileSystemChanged;
+                _watcher.Deleted += OnFileSystemChanged;
+                _watcher.Renamed += OnFileSystemChanged;
+                _watcher.Changed += OnFileSystemChanged;
+                _watcher.Error += OnWatcherError;
+            }
+        }
+        catch
+        {
+            // Ignore watcher failure on network or restricted drives
+        }
+    }
+
+    private void StopWatcher()
+    {
+        lock (_watcherLock)
+        {
+            _watcherDebounceTimer.Stop();
+            if (_watcher != null)
+            {
+                try
+                {
+                    _watcher.EnableRaisingEvents = false;
+                    _watcher.Created -= OnFileSystemChanged;
+                    _watcher.Deleted -= OnFileSystemChanged;
+                    _watcher.Renamed -= OnFileSystemChanged;
+                    _watcher.Changed -= OnFileSystemChanged;
+                    _watcher.Error -= OnWatcherError;
+                    _watcher.Dispose();
+                }
+                catch
+                {
+                    // Ignore disposal errors
+                }
+                finally
+                {
+                    _watcher = null;
+                }
+            }
+        }
+    }
+
+    private void OnFileSystemChanged(object sender, FileSystemEventArgs e)
+    {
+        // Debounce frequent file system notifications
+        _watcherDebounceTimer.Stop();
+        _watcherDebounceTimer.Start();
+    }
+
+    private void OnWatcherError(object sender, ErrorEventArgs e)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            await SilentRefreshAsync();
+        });
     }
 
     public void SetItemsDirectly(IEnumerable<FileItemViewModel> items, string status)
