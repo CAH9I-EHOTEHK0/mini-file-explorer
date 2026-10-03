@@ -169,6 +169,7 @@
                                                   InputGesture="F5" />
                                         <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).MoveBetweenPanesCommand}" 
+                                                  IsEnabled="{Binding !IsSystemProtected}"
                                                   InputGesture="F6" />
                                         <Separator />
                                         <MenuItem Header="📋 Копіювати як шлях" 
@@ -179,6 +180,8 @@
                                         <MenuItem Header="🗑 Видалити" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
                                                   CommandParameter="{Binding}" 
+                                                  IsEnabled="{Binding !IsSystemProtected}"
+                                                  ToolTip.Tip="{Binding IsSystemProtected, Converter={x:Null}, FallbackValue='Видалити'}"
                                                   InputGesture="Delete" />
                                         <Separator />
                                         <MenuItem Header="🔒 Обчислити SHA-256" 

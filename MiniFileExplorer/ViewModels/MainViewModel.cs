@@ -277,6 +277,12 @@ public partial class MainViewModel : ViewModelBase
         var item = sourcePane.SelectedItem;
         if (item == null || item.Name == "..") return;
 
+        if (IsProtectedSystemTarget(item.FullPath))
+        {
+            ShowBanner($"⛔ Захищено системою: переміщення '{item.Name}' заблоковано задля безпеки вашої ОС!", NotificationSeverity.Error);
+            return;
+        }
+
         string destPath = Path.Combine(targetPane.CurrentPath, item.Name);
 
         bool destExists = item.IsDirectory 
@@ -569,11 +575,78 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    public static bool IsProtectedSystemTarget(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
+        try
+        {
+            string cleanPath = Path.GetFullPath(path).TrimEnd('\\', '/');
+
+            // Protect root drives (e.g. C:, D:)
+            string? root = Path.GetPathRoot(cleanPath)?.TrimEnd('\\', '/');
+            if (string.Equals(cleanPath, root, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // List of sensitive system directories
+            string winDir = Environment.GetFolderPath(Environment.SpecialFolder.Windows).TrimEnd('\\', '/');
+            string sysDir = Environment.GetFolderPath(Environment.SpecialFolder.System).TrimEnd('\\', '/');
+            string progFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles).TrimEnd('\\', '/');
+            string progFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86).TrimEnd('\\', '/');
+            string progData = Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData).TrimEnd('\\', '/');
+
+            var protectedDirs = new[]
+            {
+                winDir,
+                sysDir,
+                progFiles,
+                progFilesX86,
+                progData,
+                Path.Combine(winDir, "System32"),
+                Path.Combine(winDir, "SysWOW64"),
+                Path.Combine(winDir, "WinSxS")
+            };
+
+            foreach (var p in protectedDirs)
+            {
+                if (!string.IsNullOrWhiteSpace(p) && string.Equals(cleanPath, p, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            // Protect root critical system files
+            string fileName = Path.GetFileName(cleanPath);
+            var criticalFiles = new[]
+            {
+                "pagefile.sys", "hiberfil.sys", "swapfile.sys", "dumpstack.log", "bootmgr", "BOOTNXT"
+            };
+
+            if (criticalFiles.Any(f => string.Equals(fileName, f, StringComparison.OrdinalIgnoreCase)))
+                return true;
+
+            // Protect System Volume Information and $Recycle.Bin
+            if (cleanPath.Contains("System Volume Information", StringComparison.OrdinalIgnoreCase) ||
+                cleanPath.Contains("$Recycle.Bin", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        catch
+        {
+            // If path check fails, do not block unless obviously root
+        }
+
+        return false;
+    }
+
     [RelayCommand]
     public void DeleteItem(FileItemViewModel? item)
     {
         item ??= ActivePane.SelectedItem;
         if (item == null || item.Name == "..") return;
+
+        if (IsProtectedSystemTarget(item.FullPath))
+        {
+            ShowBanner($"⛔ Захищено системою: видалення '{item.Name}' заблоковано задля безпеки вашої ОС!", NotificationSeverity.Error);
+            return;
+        }
 
         string targetType = item.IsDirectory ? "папку" : "файл";
         string warningExtra = item.IsDirectory ? "\n⚠️ Усі файли та підпапки буде безповоротно видалено!" : "";

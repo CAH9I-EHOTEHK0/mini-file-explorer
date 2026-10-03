@@ -30,6 +30,7 @@ public partial class FileItemViewModel : ViewModelBase
     public string Name => _drive != null ? _drive.DisplayText : (_item?.Name ?? string.Empty);
     public string FullPath => _drive != null ? _drive.RootDirectory : (_item?.FullPath ?? string.Empty);
     public bool IsDirectory => _drive != null || (_item?.IsDirectory ?? false);
+    public bool IsSystemProtected => MainViewModel.IsProtectedSystemTarget(FullPath);
     public long? SizeBytes => _drive != null ? _drive.TotalSize : (IsDirectory ? CalculatedSizeBytes : _item?.SizeBytes);
     public DateTime? ModifiedDate => _item?.ModifiedDate;
     public string? Extension => _item?.Extension;
