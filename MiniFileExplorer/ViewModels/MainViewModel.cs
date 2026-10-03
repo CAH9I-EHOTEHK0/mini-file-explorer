@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Input.Platform;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -74,6 +75,24 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool _isPreviewPaneVisible = true;
+
+    [ObservableProperty]
+    private bool _isDarkMode = true;
+
+    public string ThemeGlyph => IsDarkMode ? "🌙" : "☀️";
+    public string ThemeToolTip => IsDarkMode ? "Перемкнути на світлу тему" : "Перемкнути на темну тему";
+
+    [RelayCommand]
+    public void ToggleTheme()
+    {
+        IsDarkMode = !IsDarkMode;
+        if (Application.Current != null)
+        {
+            Application.Current.RequestedThemeVariant = IsDarkMode ? ThemeVariant.Dark : ThemeVariant.Light;
+        }
+        OnPropertyChanged(nameof(ThemeGlyph));
+        OnPropertyChanged(nameof(ThemeToolTip));
+    }
 
     [ObservableProperty]
     private bool _hasBanner;

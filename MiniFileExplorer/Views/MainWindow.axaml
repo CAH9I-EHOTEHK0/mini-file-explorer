@@ -22,7 +22,7 @@
     <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
         <!-- Top Toolbar & Global Actions -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,6">
-            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+            <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto">
                 <!-- Dual Pane Toggle Button -->
                 <ToggleButton Grid.Column="0" 
                               IsChecked="{Binding IsDualPaneMode, Mode=TwoWay}"
@@ -101,11 +101,20 @@
                         Command="{Binding RunStressTestCommand}"
                         IsEnabled="{Binding !IsRunningStressTest}"
                         ToolTip.Tip="Стрес-тест (День 12): створення 10 000 файлів для перевірки віртуалізації та стабільності"
+                        Margin="0,0,6,0"
                         Padding="8,4">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="🧪" />
                         <TextBlock Text="Тест 10k" />
                     </StackPanel>
+                </Button>
+
+                <!-- Day 13: Dark / Light Theme Toggle Button -->
+                <Button Grid.Column="5" 
+                        Command="{Binding ToggleThemeCommand}"
+                        ToolTip.Tip="{Binding ThemeToolTip}"
+                        Padding="8,4">
+                    <TextBlock Text="{Binding ThemeGlyph}" FontSize="14" />
                 </Button>
             </Grid>
         </Border>

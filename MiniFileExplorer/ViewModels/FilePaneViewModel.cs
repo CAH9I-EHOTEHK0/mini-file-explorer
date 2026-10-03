@@ -23,6 +23,12 @@ public enum SortField
     Date
 }
 
+public enum PaneViewMode
+{
+    Details,
+    Grid
+}
+
 public partial class FilePaneViewModel : ViewModelBase
 {
     private readonly IFileSystemService _fileSystemService;
@@ -72,10 +78,33 @@ public partial class FilePaneViewModel : ViewModelBase
     [ObservableProperty]
     private bool _sortAscending = true;
 
+    [ObservableProperty]
+    private PaneViewMode _viewMode = PaneViewMode.Details;
+
+    public bool IsDetailsView => ViewMode == PaneViewMode.Details;
+    public bool IsGridView => ViewMode == PaneViewMode.Grid;
+
+    public string ViewModeGlyph => ViewMode == PaneViewMode.Details ? "🔲" : "☰";
+    public string ViewModeToolTip => ViewMode == PaneViewMode.Details ? "Перемкнути на вигляд 'Великі піктограми'" : "Перемкнути на вигляд 'Таблиця'";
+
     public string NameSortIndicator => CurrentSortField == SortField.Name ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string TypeSortIndicator => CurrentSortField == SortField.Type ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string SizeSortIndicator => CurrentSortField == SortField.Size ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string DateSortIndicator => CurrentSortField == SortField.Date ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+
+    partial void OnViewModeChanged(PaneViewMode value)
+    {
+        OnPropertyChanged(nameof(IsDetailsView));
+        OnPropertyChanged(nameof(IsGridView));
+        OnPropertyChanged(nameof(ViewModeGlyph));
+        OnPropertyChanged(nameof(ViewModeToolTip));
+    }
+
+    [RelayCommand]
+    public void ToggleViewMode()
+    {
+        ViewMode = (ViewMode == PaneViewMode.Details) ? PaneViewMode.Grid : PaneViewMode.Details;
+    }
 
     public FilePaneViewModel(IFileSystemService fileSystemService)
     {

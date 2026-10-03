@@ -1,4 +1,4 @@
-<UserControl xmlns="https://github.com/avaloniaui"
+﻿<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MiniFileExplorer.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -20,7 +20,7 @@
         <Grid RowDefinitions="Auto, Auto, *">
             <!-- Pane Navigation & Address Bar -->
             <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="6,4">
-                <Grid ColumnDefinitions="Auto, *, Auto, Auto">
+                <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,6,0">
                         <Button Command="{Binding GoUpCommand}" 
                                 IsEnabled="{Binding CanGoUp}" 
@@ -57,11 +57,25 @@
                             Padding="8,3">
                         <TextBlock Text="📊" />
                     </Button>
+
+                    <!-- Toggle View Mode Button (Details / Large Icons Grid) -->
+                    <Button Grid.Column="4" 
+                            Command="{Binding ToggleViewModeCommand}" 
+                            ToolTip.Tip="{Binding ViewModeToolTip}"
+                            Margin="6,0,0,0" 
+                            Padding="8,3">
+                        <TextBlock Text="{Binding ViewModeGlyph}" FontSize="12" />
+                    </Button>
                 </Grid>
             </Border>
 
-            <!-- Column Headers & In-Pane Quick Filter -->
-            <Border Grid.Row="1" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,3">
+            <!-- Column Headers & In-Pane Quick Filter (Visible in Details mode) -->
+            <Border Grid.Row="1" 
+                    IsVisible="{Binding IsDetailsView}"
+                    Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" 
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                    BorderThickness="0,0,0,1" 
+                    Padding="8,3">
                 <Grid ColumnDefinitions="26, *, 85, 80, 115, 100">
                     <TextBlock Grid.Column="0" Text="" />
 
@@ -126,24 +140,59 @@
                                  FontSize="10" 
                                  VerticalAlignment="Center" />
                         <Button Grid.Column="1" 
-                                Command="{Binding ClearFilterCommand}" 
-                                IsVisible="{Binding FilterQuery.Length}" 
-                                Background="Transparent" 
-                                BorderThickness="0" 
-                                Padding="2">
+                                 Command="{Binding ClearFilterCommand}" 
+                                 IsVisible="{Binding FilterQuery.Length}" 
+                                 Background="Transparent" 
+                                 BorderThickness="0" 
+                                 Padding="2">
                             <TextBlock Text="✕" Foreground="Gray" FontSize="9" />
                         </Button>
                     </Grid>
                 </Grid>
             </Border>
 
-            <!-- Files List -->
+            <!-- Quick Filter Bar in Large Icons Grid Mode -->
+            <Border Grid.Row="1" 
+                    IsVisible="{Binding IsGridView}"
+                    Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" 
+                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                    BorderThickness="0,0,0,1" 
+                    Padding="8,4">
+                <Grid ColumnDefinitions="*, Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="Вигляд: Великі піктограми" FontSize="11" Foreground="Gray" VerticalAlignment="Center" />
+                        <Button Command="{Binding ToggleSortCommand}" CommandParameter="Name" Background="Transparent" BorderThickness="0" Padding="4,2">
+                            <TextBlock FontSize="11"><Run Text="Сортувати за ім'ям" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" /></TextBlock>
+                        </Button>
+                    </StackPanel>
+                    <Grid Grid.Column="1" Width="140" ColumnDefinitions="*, Auto">
+                        <TextBox Grid.Column="0" 
+                                 Text="{Binding FilterQuery, Mode=TwoWay}" 
+                                 PlaceholderText="🔍 Фільтр..." 
+                                 Padding="4,2" 
+                                 FontSize="10" 
+                                 VerticalAlignment="Center" />
+                        <Button Grid.Column="1" 
+                                 Command="{Binding ClearFilterCommand}" 
+                                 IsVisible="{Binding FilterQuery.Length}" 
+                                 Background="Transparent" 
+                                 BorderThickness="0" 
+                                 Padding="2">
+                            <TextBlock Text="✕" Foreground="Gray" FontSize="9" />
+                        </Button>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- Files List Area -->
             <Grid Grid.Row="2" PointerPressed="OnPanePointerPressed">
+                <!-- Mode 1: Details Table ListBox -->
                 <ListBox ItemsSource="{Binding Items}"
                          SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
                          DoubleTapped="OnItemListDoubleTapped"
                          KeyDown="OnItemListKeyDown"
                          GotFocus="OnListBoxGotFocus"
+                         IsVisible="{Binding IsDetailsView}"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
@@ -205,6 +254,87 @@
                                 <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
                                 <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
                             </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- Mode 2: Large Icons Grid View (WrapPanel) -->
+                <ListBox ItemsSource="{Binding Items}"
+                         SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                         DoubleTapped="OnItemListDoubleTapped"
+                         KeyDown="OnItemListKeyDown"
+                         GotFocus="OnListBoxGotFocus"
+                         IsVisible="{Binding IsGridView}"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                    <ListBox.Styles>
+                        <Style Selector="ListBoxItem">
+                            <Setter Property="Padding" Value="4" />
+                            <Setter Property="Margin" Value="4" />
+                            <Setter Property="Width" Value="92" />
+                            <Setter Property="Height" Value="88" />
+                            <Setter Property="HorizontalContentAlignment" Value="Center" />
+                        </Style>
+                    </ListBox.Styles>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FileItemViewModel">
+                            <Border CornerRadius="6" Padding="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ToolTip.Tip="{Binding FullPath}">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="📂 Відкрити" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).OpenItemCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="Enter" />
+                                        <MenuItem Header="📁 Створити папку" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CreateFolderCommand}" 
+                                                  InputGesture="F7" />
+                                        <Separator />
+                                        <MenuItem Header="📋 Копіювати в іншу панель (F5)" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyBetweenPanesCommand}" 
+                                                  InputGesture="F5" />
+                                        <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).MoveBetweenPanesCommand}" 
+                                                  IsEnabled="{Binding !IsSystemProtected}"
+                                                  InputGesture="F6" />
+                                        <Separator />
+                                        <MenuItem Header="📋 Копіювати як шлях" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyPathCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="Ctrl+Shift+C" />
+                                        <Separator />
+                                        <MenuItem Header="🗑 Видалити" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  IsEnabled="{Binding !IsSystemProtected}"
+                                                  InputGesture="Delete" />
+                                        <Separator />
+                                        <MenuItem Header="⭐ Додати в закладки" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).AddBookmarkCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  IsVisible="{Binding IsDirectory}" />
+                                        <Separator />
+                                        <MenuItem Header="ℹ Властивості" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ShowPropertiesCommand}" 
+                                                  CommandParameter="{Binding}" />
+                                    </ContextMenu>
+                                </Border.ContextMenu>
+
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
+                                    <TextBlock Text="{Binding IconGlyph}" FontSize="32" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{Binding Name}" 
+                                               FontSize="11" 
+                                               HorizontalAlignment="Center" 
+                                               TextAlignment="Center"
+                                               MaxLines="2"
+                                               TextWrapping="Wrap" 
+                                               TextTrimming="CharacterEllipsis" 
+                                               MaxWidth="82" />
+                                </StackPanel>
+                            </Border>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
