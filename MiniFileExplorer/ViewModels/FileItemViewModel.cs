@@ -1,4 +1,5 @@
-using System;
+﻿using System;
+using Avalonia.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MiniFileExplorer.Models;
 using MiniFileExplorer.Services;
@@ -75,6 +76,13 @@ public partial class FileItemViewModel : ViewModelBase
         : (IsDirectory 
             ? (_item?.Name == ".." ? "⬆" : "📁") 
             : GetFileIcon(Extension));
+
+    public Bitmap? IconBitmap => IconService.GetIconForFile(
+        extension: Extension,
+        isDirectory: IsDirectory,
+        isParentDir: _item?.Name == "..",
+        isDrive: _drive != null
+    );
 
     [ObservableProperty]
     private long? _calculatedSizeBytes;

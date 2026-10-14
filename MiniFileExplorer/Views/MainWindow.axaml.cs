@@ -1,4 +1,4 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using MiniFileExplorer.ViewModels;
@@ -45,7 +45,15 @@ public partial class MainWindow : Window
             }
         }
 
-        if (e.Key == Key.F7)
+        if (e.Key == Key.F2)
+        {
+            if (vm.ActivePane.SelectedItem != null && vm.RenameItemCommand.CanExecute(vm.ActivePane.SelectedItem))
+            {
+                vm.RenameItemCommand.Execute(vm.ActivePane.SelectedItem);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.F7)
         {
             if (vm.CreateFolderCommand.CanExecute(null))
             {

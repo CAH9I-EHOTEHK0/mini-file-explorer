@@ -1,4 +1,5 @@
-﻿using Avalonia.Controls;
+using System;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using MiniFileExplorer.ViewModels;
@@ -10,6 +11,53 @@ public partial class FilePaneView : UserControl
     public FilePaneView()
     {
         InitializeComponent();
+
+        AttachedToVisualTree += (s, e) =>
+        {
+            if (HeaderGrid?.ColumnDefinitions.Count >= 9)
+            {
+                var nameCol = HeaderGrid.ColumnDefinitions[1];
+                var typeCol = HeaderGrid.ColumnDefinitions[3];
+                var sizeCol = HeaderGrid.ColumnDefinitions[5];
+                var dateCol = HeaderGrid.ColumnDefinitions[7];
+
+                nameCol.PropertyChanged += (o, args) =>
+                {
+                    if (args.Property == ColumnDefinition.WidthProperty && DataContext is FilePaneViewModel vm)
+                    {
+                        var w = nameCol.Width;
+                        if (Math.Abs(vm.ColNameWidth.Value - w.Value) > 0.5) vm.ColNameWidth = w;
+                    }
+                };
+
+                typeCol.PropertyChanged += (o, args) =>
+                {
+                    if (args.Property == ColumnDefinition.WidthProperty && DataContext is FilePaneViewModel vm)
+                    {
+                        var w = typeCol.Width;
+                        if (Math.Abs(vm.ColTypeWidth.Value - w.Value) > 0.5) vm.ColTypeWidth = w;
+                    }
+                };
+
+                sizeCol.PropertyChanged += (o, args) =>
+                {
+                    if (args.Property == ColumnDefinition.WidthProperty && DataContext is FilePaneViewModel vm)
+                    {
+                        var w = sizeCol.Width;
+                        if (Math.Abs(vm.ColSizeWidth.Value - w.Value) > 0.5) vm.ColSizeWidth = w;
+                    }
+                };
+
+                dateCol.PropertyChanged += (o, args) =>
+                {
+                    if (args.Property == ColumnDefinition.WidthProperty && DataContext is FilePaneViewModel vm)
+                    {
+                        var w = dateCol.Width;
+                        if (Math.Abs(vm.ColDateWidth.Value - w.Value) > 0.5) vm.ColDateWidth = w;
+                    }
+                };
+            }
+        };
     }
 
     private void OnAddressBarKeyDown(object? sender, KeyEventArgs e)
@@ -50,6 +98,14 @@ public partial class FilePaneView : UserControl
             if (vm.CanGoUp)
             {
                 vm.GoUpCommand.Execute(null);
+                e.Handled = true;
+            }
+        }
+        else if (e.Key == Key.F2)
+        {
+            if (vm.SelectedItem != null)
+            {
+                vm.RenameItemCommand.Execute(vm.SelectedItem);
                 e.Handled = true;
             }
         }

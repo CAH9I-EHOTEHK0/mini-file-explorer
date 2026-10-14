@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -7,6 +7,8 @@ using System.Linq;
 using System.Security;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -79,6 +81,18 @@ public partial class FilePaneViewModel : ViewModelBase
     private bool _sortAscending = true;
 
     [ObservableProperty]
+    private GridLength _colNameWidth = new(200, GridUnitType.Pixel);
+
+    [ObservableProperty]
+    private GridLength _colTypeWidth = new(85, GridUnitType.Pixel);
+
+    [ObservableProperty]
+    private GridLength _colSizeWidth = new(85, GridUnitType.Pixel);
+
+    [ObservableProperty]
+    private GridLength _colDateWidth = new(120, GridUnitType.Pixel);
+
+    [ObservableProperty]
     private PaneViewMode _viewMode = PaneViewMode.Details;
 
     public bool IsDetailsView => ViewMode == PaneViewMode.Details;
@@ -91,6 +105,14 @@ public partial class FilePaneViewModel : ViewModelBase
     public string TypeSortIndicator => CurrentSortField == SortField.Type ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string SizeSortIndicator => CurrentSortField == SortField.Size ? (SortAscending ? " ▲" : " ▼") : string.Empty;
     public string DateSortIndicator => CurrentSortField == SortField.Date ? (SortAscending ? " ▲" : " ▼") : string.Empty;
+
+    public Bitmap? NameSortBitmap => CurrentSortField == SortField.Name ? GetSortChevronBitmap() : null;
+    public Bitmap? TypeSortBitmap => CurrentSortField == SortField.Type ? GetSortChevronBitmap() : null;
+    public Bitmap? SizeSortBitmap => CurrentSortField == SortField.Size ? GetSortChevronBitmap() : null;
+    public Bitmap? DateSortBitmap => CurrentSortField == SortField.Date ? GetSortChevronBitmap() : null;
+
+    private Bitmap? GetSortChevronBitmap() =>
+        IconService.LoadBitmap(SortAscending ? "icons8-chevron-up-64.png" : "icons8-chevron-down-64.png");
 
     partial void OnViewModeChanged(PaneViewMode value)
     {
@@ -147,6 +169,10 @@ public partial class FilePaneViewModel : ViewModelBase
         OnPropertyChanged(nameof(TypeSortIndicator));
         OnPropertyChanged(nameof(SizeSortIndicator));
         OnPropertyChanged(nameof(DateSortIndicator));
+        OnPropertyChanged(nameof(NameSortBitmap));
+        OnPropertyChanged(nameof(TypeSortBitmap));
+        OnPropertyChanged(nameof(SizeSortBitmap));
+        OnPropertyChanged(nameof(DateSortBitmap));
     }
 
     [RelayCommand]
@@ -307,6 +333,9 @@ public partial class FilePaneViewModel : ViewModelBase
 
             ApplyFilterAndSort();
             StartWatcher(targetPath);
+
+            // Auto-calculate folder sizes in background
+            _ = CalculateFolderSizesAsync();
         }
         catch (UnauthorizedAccessException)
         {
@@ -489,6 +518,9 @@ public partial class FilePaneViewModel : ViewModelBase
             {
                 SelectedItem = Items.FirstOrDefault(x => x.FullPath.Equals(selectedPath, StringComparison.OrdinalIgnoreCase));
             }
+
+            // Auto-calculate folder sizes in background
+            _ = CalculateFolderSizesAsync();
         }
         catch
         {

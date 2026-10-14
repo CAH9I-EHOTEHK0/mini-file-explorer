@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -8,6 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Input.Platform;
+using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -81,6 +82,7 @@ public partial class MainViewModel : ViewModelBase
 
     public string ThemeGlyph => IsDarkMode ? "🌙" : "☀️";
     public string ThemeToolTip => IsDarkMode ? "Перемкнути на світлу тему" : "Перемкнути на темну тему";
+    public Bitmap? ThemeBitmap => IconService.LoadBitmap(IsDarkMode ? "icons8-night-64.png" : "icons8-sun-64.png");
 
     [RelayCommand]
     public void ToggleTheme()
@@ -92,6 +94,7 @@ public partial class MainViewModel : ViewModelBase
         }
         OnPropertyChanged(nameof(ThemeGlyph));
         OnPropertyChanged(nameof(ThemeToolTip));
+        OnPropertyChanged(nameof(ThemeBitmap));
     }
 
     [ObservableProperty]
@@ -180,8 +183,10 @@ public partial class MainViewModel : ViewModelBase
 
         pane.RequestDelete = item => DeleteItemCommand.Execute(item);
         pane.RequestCreateFolder = () => CreateFolderCommand.Execute(null);
+        pane.RequestRename = item => RenameItemCommand.Execute(item);
         pane.RequestCopyBetweenPanes = () => CopyBetweenPanesAsync();
         pane.RequestMoveBetweenPanes = () => MoveBetweenPanesAsync();
+        pane.RequestCopyPath = item => CopyPathAsync(item);
         pane.RequestShowProperties = item => ShowPropertiesCommand.Execute(item);
         pane.RequestComputeSha256 = item => ComputeSha256ForActiveItemAsync(item);
         pane.RequestBookmark = item => AddBookmarkForFolder(item);
@@ -372,16 +377,55 @@ public partial class MainViewModel : ViewModelBase
         var downloads = Path.Combine(userProfile, "Downloads");
 
         if (_fileSystemService.DirectoryExists(desktop))
-            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Робочий стіл", Path = desktop, IconGlyph = "🖥", IsDrive = false });
+            QuickAccessItems.Add(new SidebarItemViewModel 
+            { 
+                Name = "Робочий стіл", 
+                Path = desktop, 
+                IconGlyph = "🖥", 
+                IconBitmap = IconService.LoadBitmap("icons8-workstation-64.png"),
+                IsDrive = false 
+            });
 
         if (_fileSystemService.DirectoryExists(downloads))
-            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Завантаження", Path = downloads, IconGlyph = "📥", IsDrive = false });
+            QuickAccessItems.Add(new SidebarItemViewModel 
+            { 
+                Name = "Завантаження", 
+                Path = downloads, 
+                IconGlyph = "📥", 
+                IconBitmap = IconService.LoadBitmap("icons8-downloads-64.png"),
+                IsDrive = false 
+            });
 
         if (_fileSystemService.DirectoryExists(documents))
-            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Документи", Path = documents, IconGlyph = "📄", IsDrive = false });
+            QuickAccessItems.Add(new SidebarItemViewModel 
+            { 
+                Name = "Документи", 
+                Path = documents, 
+                IconGlyph = "📄", 
+                IconBitmap = IconService.LoadBitmap("icons8-documents-64.png"),
+                IsDrive = false 
+            });
 
         if (_fileSystemService.DirectoryExists(pictures))
-            QuickAccessItems.Add(new SidebarItemViewModel { Name = "Зображення", Path = pictures, IconGlyph = "🖼", IsDrive = false });
+            QuickAccessItems.Add(new SidebarItemViewModel 
+            { 
+                Name = "Зображення", 
+                Path = pictures, 
+                IconGlyph = "🖼", 
+                IconBitmap = IconService.LoadBitmap("icons8-gallery-64.png"),
+                IsDrive = false 
+            });
+
+        // Add Recycle Bin / Кошик to Quick Access (User Request)
+        string recycleBinPath = @"C:\$Recycle.Bin";
+        QuickAccessItems.Add(new SidebarItemViewModel 
+        { 
+            Name = "Кошик", 
+            Path = Directory.Exists(recycleBinPath) ? recycleBinPath : "shell:RecycleBinFolder", 
+            IconGlyph = "🗑", 
+            IconBitmap = IconService.LoadBitmap("icons8-bin-64.png"),
+            IsDrive = false 
+        });
     }
 
     private void LoadDrives()
@@ -399,6 +443,7 @@ public partial class MainViewModel : ViewModelBase
                 Name = drive.Name,
                 Path = drive.RootDirectory,
                 IconGlyph = "💾",
+                IconBitmap = IconService.LoadBitmap("icons8-ssd-64.png"),
                 Subtitle = subtitle,
                 IsDrive = true
             });
@@ -772,13 +817,115 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    public void ShowProperties(FileItemViewModel? item)
+    public void RenameItem(FileItemViewModel? item)
     {
         item ??= ActivePane.SelectedItem;
         if (item == null || item.Name == "..") return;
 
-        string info = $"{item.Name} | Тип: {item.TypeDescription} | Розмір: {item.FormattedSize} | Змінено: {item.FormattedDate}";
-        ShowBanner(info, NotificationSeverity.Info);
+        if (IsProtectedSystemTarget(item.FullPath))
+        {
+            ShowBanner($"⛔ Захищено системою: перейменування '{item.Name}' заблоковано!", NotificationSeverity.Error);
+            return;
+        }
+
+        string targetType = item.IsDirectory ? "папки" : "файлу";
+        ModalTitle = $"Перейменувати {targetType}";
+        ModalMessage = $"Введіть нове ім'я для:\n{item.Name}";
+        ModalIcon = "✏️";
+        ModalConfirmButtonText = "Перейменувати";
+        IsModalDestructive = false;
+        IsModalInputMode = true;
+        ModalInputValue = item.Name;
+
+        _modalConfirmAction = async () =>
+        {
+            var newName = ModalInputValue.Trim();
+            if (string.IsNullOrWhiteSpace(newName) || newName.Equals(item.Name, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            char[] invalidChars = Path.GetInvalidFileNameChars();
+            if (newName.IndexOfAny(invalidChars) >= 0)
+            {
+                ShowBanner("Ім'я містить неприпустимі символи", NotificationSeverity.Error);
+                return;
+            }
+
+            string? parentDir = _fileSystemService.GetParentDirectory(item.FullPath);
+            if (string.IsNullOrWhiteSpace(parentDir)) return;
+
+            string newPath = Path.Combine(parentDir, newName);
+
+            try
+            {
+                if (item.IsDirectory)
+                {
+                    if (_fileSystemService.DirectoryExists(newPath))
+                    {
+                        ShowBanner($"Папка з іменем '{newName}' вже існує", NotificationSeverity.Warning);
+                        return;
+                    }
+                    Directory.Move(item.FullPath, newPath);
+                }
+                else
+                {
+                    if (File.Exists(newPath))
+                    {
+                        ShowBanner($"Файл з іменем '{newName}' вже існує", NotificationSeverity.Warning);
+                        return;
+                    }
+                    File.Move(item.FullPath, newPath);
+                }
+
+                ShowBanner($"Перейменовано на: {newName}", NotificationSeverity.Info);
+                await ActivePane.RefreshAsync();
+
+                var renamedItem = ActivePane.Items.FirstOrDefault(x => x.FullPath.Equals(newPath, StringComparison.OrdinalIgnoreCase));
+                if (renamedItem != null)
+                {
+                    ActivePane.SelectedItem = renamedItem;
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowBanner($"Помилка перейменування: {ex.Message}", NotificationSeverity.Error);
+            }
+        };
+
+        IsModalOpen = true;
+    }
+
+    [RelayCommand]
+    public async Task ShowPropertiesAsync(FileItemViewModel? item)
+    {
+        item ??= ActivePane.SelectedItem;
+        if (item == null || item.Name == "..") return;
+
+        string sizeStr = item.FormattedSize;
+        if (item.IsDirectory && !item.CalculatedSizeBytes.HasValue && !item.IsDrive)
+        {
+            sizeStr = "обчислення...";
+            string initialInfo = $"{item.Name} | Тип: {item.TypeDescription} | Розмір: {sizeStr} | Змінено: {item.FormattedDate}";
+            ShowBanner(initialInfo, NotificationSeverity.Info);
+
+            try
+            {
+                item.IsCalculatingSize = true;
+                var bytes = await _fileSystemService.CalculateDirectorySizeBytesAsync(item.FullPath);
+                item.CalculatedSizeBytes = bytes;
+                sizeStr = _fileSystemService.FormatBytes(bytes);
+            }
+            catch
+            {
+                sizeStr = "невідомо";
+            }
+            finally
+            {
+                item.IsCalculatingSize = false;
+            }
+        }
+
+        string finalInfo = $"{item.Name} | Тип: {item.TypeDescription} | Розмір: {sizeStr} | Змінено: {item.FormattedDate}";
+        ShowBanner(finalInfo, NotificationSeverity.Info);
     }
 
     [RelayCommand]
@@ -801,6 +948,7 @@ public partial class MainViewModel : ViewModelBase
                     Name = dto.Name,
                     Path = dto.Path,
                     IconGlyph = dto.IconGlyph,
+                    IconBitmap = IconService.LoadBitmap("icons8-pin-64.png"),
                     IsBookmark = true
                 });
             }
@@ -842,6 +990,7 @@ public partial class MainViewModel : ViewModelBase
             Name = dirName,
             Path = path,
             IconGlyph = "⭐",
+            IconBitmap = IconService.LoadBitmap("icons8-pin-64.png"),
             IsBookmark = true
         };
 
@@ -876,6 +1025,7 @@ public partial class MainViewModel : ViewModelBase
             Name = item.Name,
             Path = item.FullPath,
             IconGlyph = "⭐",
+            IconBitmap = IconService.LoadBitmap("icons8-pin-64.png"),
             IsBookmark = true
         };
 
@@ -925,7 +1075,7 @@ public partial class MainViewModel : ViewModelBase
         ShowConfirmationModal(
             title: "Запустити стрес-тест (10 000 файлів)?",
             message: $"Буде створено тестовий каталог у системному Temp:\n{stressDir}\nз {targetFileCount:N0} файлами для перевірки швидкодії віртуалізації, сортування та стабільності пам'яті.\n\nПісля завершення та огляду папку можна буде очистити в 1 клік.",
-            icon: "🧪",
+            icon: "",
             confirmText: "Почати тест",
             isDestructive: false,
             onConfirm: async () =>

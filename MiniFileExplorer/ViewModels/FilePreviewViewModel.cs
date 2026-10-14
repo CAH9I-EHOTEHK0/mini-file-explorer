@@ -31,6 +31,9 @@ public partial class FilePreviewViewModel : ViewModelBase
     private string _iconGlyph = "📁";
 
     [ObservableProperty]
+    private Bitmap? _iconBitmap = IconService.LoadBitmap("icons8-folder-64.png");
+
+    [ObservableProperty]
     private bool _isEmpty = true;
 
     [ObservableProperty]
@@ -103,6 +106,7 @@ public partial class FilePreviewViewModel : ViewModelBase
 
         Title = "Немає вибору";
         IconGlyph = "📁";
+        IconBitmap = IconService.LoadBitmap("icons8-folder-64.png");
         IsEmpty = true;
         IsFolder = false;
         IsText = false;
@@ -138,6 +142,7 @@ public partial class FilePreviewViewModel : ViewModelBase
         IsEmpty = false;
         Title = item.Name;
         IconGlyph = item.IconGlyph;
+        IconBitmap = item.IconBitmap;
         FilePath = item.FullPath;
         FileSizeInfo = item.FormattedSize;
         ModifiedDateInfo = item.FormattedDate;

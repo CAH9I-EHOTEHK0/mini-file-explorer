@@ -1,9 +1,8 @@
-<Application xmlns="https://github.com/avaloniaui"
+﻿<Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="MiniFileExplorer.App"
              xmlns:local="using:MiniFileExplorer"
-             RequestedThemeVariant="Default">
-             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+             RequestedThemeVariant="Dark">
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -12,4 +11,64 @@
     <Application.Styles>
         <FluentTheme />
     </Application.Styles>
+
+    <Application.Resources>
+        <!-- Liquid Glass & Low-Contrast Modern Palette (Dark Variant) -->
+        <ResourceDictionary>
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Dark">
+                    <!-- Deep low-contrast slate grey background for window instead of pitch black -->
+                    <SolidColorBrush x:Key="AppWindowBackground">#18191C</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppContentBackground">#1E2024</SolidColorBrush>
+                    
+                    <!-- Liquid Glass Sidebar: semi-transparent muted blue-grey glass -->
+                    <SolidColorBrush x:Key="GlassSidebarBackground">#CC23272E</SolidColorBrush>
+                    <SolidColorBrush x:Key="GlassSidebarBorder">#383D47</SolidColorBrush>
+                    
+                    <!-- Clean Cards & Panes -->
+                    <SolidColorBrush x:Key="AppPaneBackground">#1E2024</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppPaneBorder">#2D3139</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppToolbarBackground">#24272E</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppToolbarBorder">#30343D</SolidColorBrush>
+                    
+                    <!-- Header & Subheader -->
+                    <SolidColorBrush x:Key="AppHeaderBackground">#252930</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppHeaderBorder">#333842</SolidColorBrush>
+                    
+                    <!-- Items selection & hover -->
+                    <SolidColorBrush x:Key="ItemHoverBackground">#2D323C</SolidColorBrush>
+                    <SolidColorBrush x:Key="ItemSelectedBackground">#384152</SolidColorBrush>
+                    <SolidColorBrush x:Key="ItemActiveBorder">#4F80E2</SolidColorBrush>
+                    
+                    <!-- Soft low-contrast typography -->
+                    <SolidColorBrush x:Key="TextPrimary">#E3E5E8</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextSecondary">#9DA5B4</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextMuted">#6B7382</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBlue">#4A90E2</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBlueSoft">#204A90E2</SolidColorBrush>
+                </ResourceDictionary>
+                
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AppWindowBackground">#F0F2F5</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppContentBackground">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="GlassSidebarBackground">#E6ECEFF4</SolidColorBrush>
+                    <SolidColorBrush x:Key="GlassSidebarBorder">#D8DEE9</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppPaneBackground">#FFFFFF</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppPaneBorder">#E5E9F0</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppToolbarBackground">#F5F7FA</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppToolbarBorder">#E5E9F0</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppHeaderBackground">#F8FAFC</SolidColorBrush>
+                    <SolidColorBrush x:Key="AppHeaderBorder">#E2E8F0</SolidColorBrush>
+                    <SolidColorBrush x:Key="ItemHoverBackground">#EAEFF7</SolidColorBrush>
+                    <SolidColorBrush x:Key="ItemSelectedBackground">#D8E5F8</SolidColorBrush>
+                    <SolidColorBrush x:Key="ItemActiveBorder">#3B82F6</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextPrimary">#1E293B</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextSecondary">#64748B</SolidColorBrush>
+                    <SolidColorBrush x:Key="TextMuted">#94A3B8</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBlue">#3B82F6</SolidColorBrush>
+                    <SolidColorBrush x:Key="AccentBlueSoft">#153B82F6</SolidColorBrush>
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
 </Application>

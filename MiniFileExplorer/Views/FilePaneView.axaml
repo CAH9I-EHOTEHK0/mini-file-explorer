@@ -1,4 +1,4 @@
-﻿<UserControl xmlns="https://github.com/avaloniaui"
+<UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:MiniFileExplorer.ViewModels"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -10,60 +10,62 @@
 
     <Border BorderBrush="{Binding IsActive, Converter={x:Null}, FallbackValue=Transparent}" 
             BorderThickness="1" 
+            CornerRadius="14"
             Classes.active="{Binding IsActive}">
         <Border.Styles>
             <Style Selector="Border.active">
-                <Setter Property="BorderBrush" Value="DodgerBlue" />
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentBlue}" />
             </Style>
         </Border.Styles>
 
         <Grid RowDefinitions="Auto, Auto, *">
             <!-- Pane Navigation & Address Bar -->
-            <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="6,4">
-                <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto">
+            <Border Grid.Row="0" 
+                    Background="{DynamicResource AppHeaderBackground}" 
+                    BorderBrush="{DynamicResource AppHeaderBorder}" 
+                    BorderThickness="0,0,0,1" 
+                    Padding="8,6">
+                <Grid ColumnDefinitions="Auto, *, Auto, Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" Margin="0,0,6,0">
                         <Button Command="{Binding GoUpCommand}" 
                                 IsEnabled="{Binding CanGoUp}" 
                                 ToolTip.Tip="Вгору (..)" 
-                                Padding="6,3">
-                            <TextBlock Text="⬆" />
+                                Padding="6,4"
+                                CornerRadius="6">
+                            <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-up-64.png" Width="16" Height="16" />
                         </Button>
                         <Button Command="{Binding RefreshCommand}" 
                                 ToolTip.Tip="Оновити" 
-                                Padding="6,3">
-                            <TextBlock Text="🔄" />
+                                Padding="6,4"
+                                CornerRadius="6">
+                            <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-sync-64.png" Width="16" Height="16" />
                         </Button>
                     </StackPanel>
 
                     <TextBox Grid.Column="1" 
                              Text="{Binding PathInput, Mode=TwoWay}"
                              VerticalAlignment="Center"
-                             Padding="6,3" FontSize="12"
+                             Padding="8,5" FontSize="12"
+                             CornerRadius="6"
                              PlaceholderText="Шлях до папки..."
                              KeyDown="OnAddressBarKeyDown" />
 
                     <Button Grid.Column="2" 
                             Command="{Binding NavigateFromInputCommand}" 
+                            ToolTip.Tip="Перейти за введеним шляхом"
                             Margin="6,0,0,0" 
-                            Padding="8,3">
-                        <TextBlock Text="➡" />
-                    </Button>
-
-                    <Button Grid.Column="3" 
-                            Command="{Binding CalculateFolderSizesCommand}" 
-                            IsEnabled="{Binding !IsCalculatingFolderSizes}"
-                            ToolTip.Tip="Порахувати розміри папок"
-                            Margin="6,0,0,0" 
-                            Padding="8,3">
-                        <TextBlock Text="📊" />
+                            Padding="6,4"
+                            CornerRadius="6">
+                        <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-right-64.png" Width="16" Height="16" />
                     </Button>
 
                     <!-- Toggle View Mode Button (Details / Large Icons Grid) -->
-                    <Button Grid.Column="4" 
+                    <Button Grid.Column="3" 
                             Command="{Binding ToggleViewModeCommand}" 
                             ToolTip.Tip="{Binding ViewModeToolTip}"
                             Margin="6,0,0,0" 
-                            Padding="8,3">
+                            Padding="8,4"
+                            CornerRadius="6">
                         <TextBlock Text="{Binding ViewModeGlyph}" FontSize="12" />
                     </Button>
                 </Grid>
@@ -72,11 +74,24 @@
             <!-- Column Headers & In-Pane Quick Filter (Visible in Details mode) -->
             <Border Grid.Row="1" 
                     IsVisible="{Binding IsDetailsView}"
-                    Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" 
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                    Background="{DynamicResource AppHeaderBackground}" 
+                    BorderBrush="{DynamicResource AppHeaderBorder}" 
                     BorderThickness="0,0,0,1" 
-                    Padding="8,3">
-                <Grid ColumnDefinitions="26, *, 85, 80, 115, 100">
+                    Padding="10,2">
+                <Grid x:Name="HeaderGrid">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="{Binding ColNameWidth, Mode=TwoWay}" MinWidth="60" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="{Binding ColTypeWidth, Mode=TwoWay}" MinWidth="40" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="{Binding ColSizeWidth, Mode=TwoWay}" MinWidth="40" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="{Binding ColDateWidth, Mode=TwoWay}" MinWidth="60" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" MinWidth="60" />
+                    </Grid.ColumnDefinitions>
+
                     <TextBlock Grid.Column="0" Text="" />
 
                     <!-- Sort by Name -->
@@ -85,58 +100,107 @@
                             CommandParameter="Name" 
                             Background="Transparent" 
                             BorderThickness="0" 
-                            Padding="2" 
-                            HorizontalAlignment="Left">
-                        <TextBlock FontWeight="SemiBold" FontSize="11">
-                            <Run Text="Назва" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" />
-                        </TextBlock>
+                            Padding="2,3" 
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="Назва" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold" FontSize="11" />
+                            <Image Source="{Binding NameSortBitmap}" Width="10" Height="10" VerticalAlignment="Center" IsVisible="{Binding NameSortBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
                     </Button>
 
+                    <GridSplitter Grid.Column="2" Width="6" Background="Transparent" ResizeDirection="Columns" Cursor="SizeWestEast">
+                        <GridSplitter.Template>
+                            <ControlTemplate>
+                                <Border Background="Transparent">
+                                    <Border Width="1" Background="{DynamicResource AppHeaderBorder}" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+                                </Border>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+
                     <!-- Sort by Type -->
-                    <Button Grid.Column="2" 
+                    <Button Grid.Column="3" 
                             Command="{Binding ToggleSortCommand}" 
                             CommandParameter="Type" 
                             Background="Transparent" 
                             BorderThickness="0" 
-                            Padding="2" 
-                            HorizontalAlignment="Left">
-                        <TextBlock FontWeight="SemiBold" FontSize="11">
-                            <Run Text="Тип" /><Run Text="{Binding TypeSortIndicator}" Foreground="DodgerBlue" />
-                        </TextBlock>
+                            Padding="2,3" 
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                            <TextBlock Text="Тип" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold" FontSize="11" />
+                            <Image Source="{Binding TypeSortBitmap}" Width="10" Height="10" VerticalAlignment="Center" IsVisible="{Binding TypeSortBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
                     </Button>
 
+                    <GridSplitter Grid.Column="4" Width="6" Background="Transparent" ResizeDirection="Columns" Cursor="SizeWestEast">
+                        <GridSplitter.Template>
+                            <ControlTemplate>
+                                <Border Background="Transparent">
+                                    <Border Width="1" Background="{DynamicResource AppHeaderBorder}" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+                                </Border>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+
                     <!-- Sort by Size -->
-                    <Button Grid.Column="3" 
+                    <Button Grid.Column="5" 
                             Command="{Binding ToggleSortCommand}" 
                             CommandParameter="Size" 
                             Background="Transparent" 
                             BorderThickness="0" 
-                            Padding="2" 
-                            HorizontalAlignment="Right">
-                        <TextBlock FontWeight="SemiBold" FontSize="11">
-                            <Run Text="Розмір" /><Run Text="{Binding SizeSortIndicator}" Foreground="DodgerBlue" />
-                        </TextBlock>
+                            Padding="2,3" 
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Right">
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                            <TextBlock Text="Розмір" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold" FontSize="11" />
+                            <Image Source="{Binding SizeSortBitmap}" Width="10" Height="10" VerticalAlignment="Center" IsVisible="{Binding SizeSortBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
                     </Button>
 
+                    <GridSplitter Grid.Column="6" Width="6" Background="Transparent" ResizeDirection="Columns" Cursor="SizeWestEast">
+                        <GridSplitter.Template>
+                            <ControlTemplate>
+                                <Border Background="Transparent">
+                                    <Border Width="1" Background="{DynamicResource AppHeaderBorder}" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+                                </Border>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+
                     <!-- Sort by Date -->
-                    <Button Grid.Column="4" 
+                    <Button Grid.Column="7" 
                             Command="{Binding ToggleSortCommand}" 
                             CommandParameter="Date" 
                             Background="Transparent" 
                             BorderThickness="0" 
-                            Padding="2" 
-                            HorizontalAlignment="Right">
-                        <TextBlock FontWeight="SemiBold" FontSize="11">
-                            <Run Text="Дата" /><Run Text="{Binding DateSortIndicator}" Foreground="DodgerBlue" />
-                        </TextBlock>
+                            Padding="2,3" 
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Right">
+                        <StackPanel Orientation="Horizontal" Spacing="4" HorizontalAlignment="Right">
+                            <TextBlock Text="Дата" Foreground="{DynamicResource TextSecondary}" FontWeight="SemiBold" FontSize="11" />
+                            <Image Source="{Binding DateSortBitmap}" Width="10" Height="10" VerticalAlignment="Center" IsVisible="{Binding DateSortBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        </StackPanel>
                     </Button>
 
+                    <GridSplitter Grid.Column="8" Width="6" Background="Transparent" ResizeDirection="Columns" Cursor="SizeWestEast">
+                        <GridSplitter.Template>
+                            <ControlTemplate>
+                                <Border Background="Transparent">
+                                    <Border Width="1" Background="{DynamicResource AppHeaderBorder}" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+                                </Border>
+                            </ControlTemplate>
+                        </GridSplitter.Template>
+                    </GridSplitter>
+
                     <!-- Quick Filter -->
-                    <Grid Grid.Column="5" Margin="6,0,0,0" ColumnDefinitions="*, Auto">
+                    <Grid Grid.Column="9" Margin="6,0,0,0" ColumnDefinitions="*, Auto">
                         <TextBox Grid.Column="0" 
                                  Text="{Binding FilterQuery, Mode=TwoWay}" 
-                                 PlaceholderText="🔍..." 
-                                 Padding="4,2" 
+                                 PlaceholderText="..." 
+                                 Padding="5,2" 
+                                 CornerRadius="6"
                                  FontSize="10" 
                                  VerticalAlignment="Center" />
                         <Button Grid.Column="1" 
@@ -145,7 +209,7 @@
                                  Background="Transparent" 
                                  BorderThickness="0" 
                                  Padding="2">
-                            <TextBlock Text="✕" Foreground="Gray" FontSize="9" />
+                            <TextBlock Text="✕" Foreground="{DynamicResource TextMuted}" FontSize="9" />
                         </Button>
                     </Grid>
                 </Grid>
@@ -154,22 +218,23 @@
             <!-- Quick Filter Bar in Large Icons Grid Mode -->
             <Border Grid.Row="1" 
                     IsVisible="{Binding IsGridView}"
-                    Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" 
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                    Background="{DynamicResource AppHeaderBackground}" 
+                    BorderBrush="{DynamicResource AppHeaderBorder}" 
                     BorderThickness="0,0,0,1" 
-                    Padding="8,4">
+                    Padding="10,5">
                 <Grid ColumnDefinitions="*, Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <TextBlock Text="Вигляд: Великі піктограми" FontSize="11" Foreground="Gray" VerticalAlignment="Center" />
+                        <TextBlock Text="Вигляд: Великі піктограми" FontSize="11" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                         <Button Command="{Binding ToggleSortCommand}" CommandParameter="Name" Background="Transparent" BorderThickness="0" Padding="4,2">
-                            <TextBlock FontSize="11"><Run Text="Сортувати за ім'ям" /><Run Text="{Binding NameSortIndicator}" Foreground="DodgerBlue" /></TextBlock>
+                            <TextBlock FontSize="11"><Run Text="Сортувати за ім'ям" Foreground="{DynamicResource TextSecondary}" /><Run Text="{Binding NameSortIndicator}" Foreground="{DynamicResource AccentBlue}" /></TextBlock>
                         </Button>
                     </StackPanel>
                     <Grid Grid.Column="1" Width="140" ColumnDefinitions="*, Auto">
                         <TextBox Grid.Column="0" 
                                  Text="{Binding FilterQuery, Mode=TwoWay}" 
                                  PlaceholderText="🔍 Фільтр..." 
-                                 Padding="4,2" 
+                                 Padding="5,2" 
+                                 CornerRadius="6"
                                  FontSize="10" 
                                  VerticalAlignment="Center" />
                         <Button Grid.Column="1" 
@@ -178,7 +243,7 @@
                                  Background="Transparent" 
                                  BorderThickness="0" 
                                  Padding="2">
-                            <TextBlock Text="✕" Foreground="Gray" FontSize="9" />
+                            <TextBlock Text="✕" Foreground="{DynamicResource TextMuted}" FontSize="9" />
                         </Button>
                     </Grid>
                 </Grid>
@@ -196,63 +261,82 @@
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.Styles>
                         <Style Selector="ListBoxItem">
-                            <Setter Property="Padding" Value="8,2" />
+                            <Setter Property="Padding" Value="8,4" />
+                            <Setter Property="CornerRadius" Value="6" />
+                            <Setter Property="Margin" Value="2,1" />
                         </Style>
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:FileItemViewModel">
-                            <Grid ColumnDefinitions="26, *, 85, 80, 115, 100" Margin="0,1">
-                                <!-- Context Menu on Right Click -->
+                            <Grid Margin="0,1">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="26" />
+                                    <ColumnDefinition Width="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ColNameWidth}" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ColTypeWidth}" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ColSizeWidth}" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ColDateWidth}" />
+                                    <ColumnDefinition Width="6" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Context Menu on Right Click (No emojis, Rename added) -->
                                 <Grid.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="📂 Відкрити" 
+                                        <MenuItem Header="Відкрити" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).OpenItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Enter" />
-                                        <MenuItem Header="📁 Створити папку" 
+                                        <MenuItem Header="Створити папку" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CreateFolderCommand}" 
                                                   InputGesture="F7" />
+                                        <MenuItem Header="Перейменувати" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).RenameItemCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="F2" />
                                         <Separator />
-                                        <MenuItem Header="📋 Копіювати в іншу панель (F5)" 
+                                        <MenuItem Header="Копіювати в іншу панель" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyBetweenPanesCommand}" 
                                                   InputGesture="F5" />
-                                        <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
+                                        <MenuItem Header="Перемістити в іншу панель" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).MoveBetweenPanesCommand}" 
                                                   IsEnabled="{Binding !IsSystemProtected}"
                                                   InputGesture="F6" />
                                         <Separator />
-                                        <MenuItem Header="📋 Копіювати як шлях" 
+                                        <MenuItem Header="Копіювати шлях" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyPathCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Ctrl+Shift+C" />
                                         <Separator />
-                                        <MenuItem Header="🗑 Видалити" 
+                                        <MenuItem Header="Видалити" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   IsEnabled="{Binding !IsSystemProtected}"
-                                                  ToolTip.Tip="{Binding IsSystemProtected, Converter={x:Null}, FallbackValue='Видалити'}"
                                                   InputGesture="Delete" />
                                         <Separator />
-                                        <MenuItem Header="🔒 Обчислити SHA-256" 
+                                        <MenuItem Header="Обчислити хеш" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ComputeSha256Command}" 
                                                   CommandParameter="{Binding}" 
                                                   IsVisible="{Binding !IsDirectory}" />
-                                        <MenuItem Header="⭐ Додати в закладки" 
+                                        <MenuItem Header="Додати в закладки" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).AddBookmarkCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   IsVisible="{Binding IsDirectory}" />
                                         <Separator />
-                                        <MenuItem Header="ℹ Властивості" 
+                                        <MenuItem Header="Властивості" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ShowPropertiesCommand}" 
                                                   CommandParameter="{Binding}" />
                                     </ContextMenu>
                                 </Grid.ContextMenu>
 
-                                <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="{Binding Name}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" ToolTip.Tip="{Binding FullPath}" />
-                                <TextBlock Grid.Column="2" Text="{Binding TypeDescription}" Foreground="Gray" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
-                                <TextBlock Grid.Column="3" Text="{Binding FormattedSize}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
-                                <TextBlock Grid.Column="4" Text="{Binding FormattedDate}" Foreground="Gray" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
+                                <Image Grid.Column="0" Source="{Binding IconBitmap}" Width="16" Height="16" VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" HorizontalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Foreground="{DynamicResource TextPrimary}" FontWeight="{Binding IsDirectory, Converter={x:Null}}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" ToolTip.Tip="{Binding FullPath}" />
+                                <TextBlock Grid.Column="3" Text="{Binding TypeDescription}" Foreground="{DynamicResource TextMuted}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="4,0" />
+                                <TextBlock Grid.Column="5" Text="{Binding FormattedSize}" Foreground="{DynamicResource TextMuted}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
+                                <TextBlock Grid.Column="7" Text="{Binding FormattedDate}" Foreground="{DynamicResource TextMuted}" FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0" />
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -275,64 +359,71 @@
                         <Style Selector="ListBoxItem">
                             <Setter Property="Padding" Value="4" />
                             <Setter Property="Margin" Value="4" />
-                            <Setter Property="Width" Value="92" />
-                            <Setter Property="Height" Value="88" />
+                            <Setter Property="Width" Value="96" />
+                            <Setter Property="Height" Value="92" />
+                            <Setter Property="CornerRadius" Value="8" />
                             <Setter Property="HorizontalContentAlignment" Value="Center" />
                         </Style>
                     </ListBox.Styles>
                     <ListBox.ItemTemplate>
                         <DataTemplate x:DataType="vm:FileItemViewModel">
-                            <Border CornerRadius="6" Padding="4" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ToolTip.Tip="{Binding FullPath}">
+                            <Border CornerRadius="8" Padding="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" ToolTip.Tip="{Binding FullPath}">
                                 <Border.ContextMenu>
                                     <ContextMenu>
-                                        <MenuItem Header="📂 Відкрити" 
+                                        <MenuItem Header="Відкрити" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).OpenItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Enter" />
-                                        <MenuItem Header="📁 Створити папку" 
+                                        <MenuItem Header="Створити папку" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CreateFolderCommand}" 
                                                   InputGesture="F7" />
+                                        <MenuItem Header="Перейменувати" 
+                                                  Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).RenameItemCommand}" 
+                                                  CommandParameter="{Binding}" 
+                                                  InputGesture="F2" />
                                         <Separator />
-                                        <MenuItem Header="📋 Копіювати в іншу панель (F5)" 
+                                        <MenuItem Header="Копіювати в іншу панель" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyBetweenPanesCommand}" 
                                                   InputGesture="F5" />
-                                        <MenuItem Header="🚚 Перемістити в іншу панель (F6)" 
+                                        <MenuItem Header="Перемістити в іншу панель" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).MoveBetweenPanesCommand}" 
                                                   IsEnabled="{Binding !IsSystemProtected}"
                                                   InputGesture="F6" />
                                         <Separator />
-                                        <MenuItem Header="📋 Копіювати як шлях" 
+                                        <MenuItem Header="Копіювати шлях" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).CopyPathCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   InputGesture="Ctrl+Shift+C" />
                                         <Separator />
-                                        <MenuItem Header="🗑 Видалити" 
+                                        <MenuItem Header="Видалити" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).DeleteItemCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   IsEnabled="{Binding !IsSystemProtected}"
                                                   InputGesture="Delete" />
                                         <Separator />
-                                        <MenuItem Header="⭐ Додати в закладки" 
+                                        <MenuItem Header="Додати в закладки" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).AddBookmarkCommand}" 
                                                   CommandParameter="{Binding}" 
                                                   IsVisible="{Binding IsDirectory}" />
                                         <Separator />
-                                        <MenuItem Header="ℹ Властивості" 
+                                        <MenuItem Header="Властивості" 
                                                   Command="{Binding #PaneRoot.((vm:FilePaneViewModel)DataContext).ShowPropertiesCommand}" 
                                                   CommandParameter="{Binding}" />
                                     </ContextMenu>
                                 </Border.ContextMenu>
 
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="4">
-                                    <TextBlock Text="{Binding IconGlyph}" FontSize="32" HorizontalAlignment="Center" />
+                                    <Image Source="{Binding IconBitmap}" Width="40" Height="40" HorizontalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                    <TextBlock Text="{Binding IconGlyph}" FontSize="32" HorizontalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
                                     <TextBlock Text="{Binding Name}" 
+                                               Foreground="{DynamicResource TextPrimary}"
                                                FontSize="11" 
                                                HorizontalAlignment="Center" 
                                                TextAlignment="Center"
                                                MaxLines="2"
                                                TextWrapping="Wrap" 
                                                TextTrimming="CharacterEllipsis" 
-                                               MaxWidth="82" />
+                                               MaxWidth="86" />
                                 </StackPanel>
                             </Border>
                         </DataTemplate>

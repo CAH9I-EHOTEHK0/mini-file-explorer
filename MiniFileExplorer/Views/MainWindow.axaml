@@ -1,4 +1,4 @@
-﻿<Window xmlns="https://github.com/avaloniaui"
+<Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MiniFileExplorer.ViewModels"
         xmlns:views="using:MiniFileExplorer.Views"
@@ -8,7 +8,7 @@
         x:Class="MiniFileExplorer.Views.MainWindow"
         x:Name="MainWindowRoot"
         x:DataType="vm:MainViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/Icons/icons8-file-explorer-64.png"
         Title="Mini File Explorer"
         Width="1200" Height="720"
         MinWidth="750" MinHeight="480"
@@ -19,28 +19,31 @@
         <vm:MainViewModel />
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto">
+    <Grid RowDefinitions="Auto, Auto, Auto, *, Auto" Background="{DynamicResource AppWindowBackground}">
         <!-- Top Toolbar & Global Actions -->
-        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1" Padding="8,6">
+        <Border Grid.Row="0" 
+                Background="{DynamicResource AppToolbarBackground}" 
+                BorderBrush="{DynamicResource AppToolbarBorder}" 
+                BorderThickness="0,0,0,1" 
+                Padding="10,6">
             <Grid ColumnDefinitions="Auto, *, Auto, Auto, Auto, Auto">
                 <!-- Dual Pane Toggle Button -->
                 <ToggleButton Grid.Column="0" 
                               IsChecked="{Binding IsDualPaneMode, Mode=TwoWay}"
                               ToolTip.Tip="Перемкнути двопанельний режим Total Commander (Tab для зміни активної панелі)"
                               Margin="0,0,10,0" 
-                              Padding="10,4">
-                    <StackPanel Orientation="Horizontal" Spacing="5">
-                        <TextBlock Text="🗂" />
-                        <TextBlock Text="2 Панелі" />
-                    </StackPanel>
+                              Padding="10,4"
+                              CornerRadius="8">
+                    <TextBlock Text="2 Панелі" />
                 </ToggleButton>
 
-                <!-- Recursive Search (Everything-style) Box -->
+                <!-- Recursive Search Box -->
                 <Grid Grid.Column="1" Margin="0,0,10,0" ColumnDefinitions="*, Auto, Auto">
                     <TextBox Grid.Column="0" 
                              Text="{Binding SearchQuery, Mode=TwoWay}"
-                             PlaceholderText="🔍 Пошук Everything (*.cs, pdf)..."
-                             Padding="8,4"
+                             PlaceholderText="Пошук (*.cs, pdf)..."
+                             Padding="10,5"
+                             CornerRadius="8"
                              KeyDown="OnSearchBoxKeyDown"
                              VerticalAlignment="Center" />
                     <Button Grid.Column="1" 
@@ -50,7 +53,7 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Padding="6,4">
-                        <TextBlock Text="🔍" Foreground="DodgerBlue" />
+                        <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-search-64.png" Width="18" Height="18" />
                     </Button>
                     <Button Grid.Column="2" 
                             Command="{Binding CancelSearchCommand}"
@@ -59,28 +62,25 @@
                             Background="Transparent"
                             BorderThickness="0"
                             Padding="6,4">
-                        <TextBlock Text="⏹" Foreground="Red" />
+                        <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-close-64.png" Width="16" Height="16" />
                     </Button>
                 </Grid>
 
-                <!-- Dual Pane Copy / Move quick actions (visible in dual mode) + F7 New Folder -->
+                <!-- Dual Pane Copy / Move quick actions (visible in dual mode) -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" Margin="0,0,10,0">
-                    <Button Command="{Binding CreateFolderCommand}" 
-                            ToolTip.Tip="Створити нову папку в активній панелі (F7)" 
-                            Padding="8,4">
-                        <TextBlock Text="📁 F7 Нова папка" />
-                    </Button>
                     <Button Command="{Binding CopyBetweenPanesCommand}" 
                             IsVisible="{Binding IsDualPaneMode}"
                             ToolTip.Tip="Скопіювати в сусідню панель (F5)" 
-                            Padding="8,4">
-                        <TextBlock Text="📋 F5 Копіювати" />
+                            Padding="8,4"
+                            CornerRadius="8">
+                        <TextBlock Text="F5 Копіювати" />
                     </Button>
                     <Button Command="{Binding MoveBetweenPanesCommand}" 
                             IsVisible="{Binding IsDualPaneMode}"
                             ToolTip.Tip="Перемістити в сусідню панель (F6)" 
-                            Padding="8,4">
-                        <TextBlock Text="🚚 F6 Перемістити" />
+                            Padding="8,4"
+                            CornerRadius="8">
+                        <TextBlock Text="F6 Перемістити" />
                     </Button>
                 </StackPanel>
 
@@ -88,12 +88,10 @@
                 <ToggleButton Grid.Column="3" 
                               IsChecked="{Binding IsPreviewPaneVisible, Mode=TwoWay}"
                               ToolTip.Tip="Показати / приховати панель попереднього перегляду"
-                              Margin="0,0,6,0"
-                              Padding="10,4">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="👁" />
-                        <TextBlock Text="Прев'ю" />
-                    </StackPanel>
+                              Margin="0,0,6,0" 
+                              Padding="10,4"
+                              CornerRadius="8">
+                    <TextBlock Text="Прев'ю" />
                 </ToggleButton>
 
                 <!-- Day 12: Stress Test (10 000 files) Button -->
@@ -101,20 +99,19 @@
                         Command="{Binding RunStressTestCommand}"
                         IsEnabled="{Binding !IsRunningStressTest}"
                         ToolTip.Tip="Стрес-тест (День 12): створення 10 000 файлів для перевірки віртуалізації та стабільності"
-                        Margin="0,0,6,0"
-                        Padding="8,4">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Text="🧪" />
-                        <TextBlock Text="Тест 10k" />
-                    </StackPanel>
+                        Margin="0,0,6,0" 
+                        Padding="8,4"
+                        CornerRadius="8">
+                    <TextBlock Text="Тест 10k" />
                 </Button>
 
                 <!-- Day 13: Dark / Light Theme Toggle Button -->
                 <Button Grid.Column="5" 
                         Command="{Binding ToggleThemeCommand}"
                         ToolTip.Tip="{Binding ThemeToolTip}"
-                        Padding="8,4">
-                    <TextBlock Text="{Binding ThemeGlyph}" FontSize="14" />
+                        Padding="6,4"
+                        CornerRadius="8">
+                    <Image Source="{Binding ThemeBitmap}" Width="18" Height="18" />
                 </Button>
             </Grid>
         </Border>
@@ -122,20 +119,20 @@
         <!-- Notification / Error Banner -->
         <Border Grid.Row="1" 
                 IsVisible="{Binding HasBanner}"
-                Background="#3A1D1D" 
-                BorderBrush="#B22222" 
+                Background="#302022" 
+                BorderBrush="#603035" 
                 BorderThickness="0,0,0,1" 
                 Padding="12,6">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <TextBlock Grid.Column="0" Text="⚠️" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="1" Text="{Binding BannerMessage}" Foreground="#FF9999" VerticalAlignment="Center" TextWrapping="Wrap" />
+                <TextBlock Grid.Column="1" Text="{Binding BannerMessage}" Foreground="#FFA3A8" VerticalAlignment="Center" TextWrapping="Wrap" />
                 <Button Grid.Column="2" 
                         Command="{Binding DismissBannerCommand}" 
                         Background="Transparent" 
                         BorderThickness="0" 
                         Padding="6,2" 
                         VerticalAlignment="Center">
-                    <TextBlock Text="✕" Foreground="#FF9999" FontWeight="Bold" />
+                    <TextBlock Text="✕" Foreground="#FFA3A8" FontWeight="Bold" />
                 </Button>
             </Grid>
         </Border>
@@ -143,78 +140,89 @@
         <!-- Search Mode Info Banner -->
         <Border Grid.Row="2" 
                 IsVisible="{Binding IsSearchMode}"
-                Background="#1B2A38" 
-                BorderBrush="DodgerBlue" 
+                Background="#202A36" 
+                BorderBrush="#314860" 
                 BorderThickness="0,0,0,1" 
                 Padding="12,6">
             <Grid ColumnDefinitions="Auto, *, Auto, Auto">
                 <TextBlock Grid.Column="0" Text="🔍" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0" />
-                <TextBlock Grid.Column="1" Text="{Binding SearchStatusText}" Foreground="#AADDFF" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <TextBlock Grid.Column="1" Text="{Binding SearchStatusText}" Foreground="#B2D4F5" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                 <ProgressBar Grid.Column="2" IsIndeterminate="True" IsVisible="{Binding IsSearching}" Width="80" Height="4" Margin="10,0" VerticalAlignment="Center" />
                 <Button Grid.Column="3" 
                         Command="{Binding ExitSearchModeCommand}" 
-                        Padding="10,2" 
-                        Background="#2B3A48"
+                        Padding="10,4" 
+                        CornerRadius="6"
+                        Background="#2B3A4C"
                         VerticalAlignment="Center">
-                    <TextBlock Text="✕ Вийти з пошуку" Foreground="White" FontSize="11" />
+                    <TextBlock Text="✕ Вийти з пошуку" Foreground="{DynamicResource TextPrimary}" FontSize="11" />
                 </Button>
             </Grid>
         </Border>
 
-        <!-- Main Workspace: Sidebar + [Files Area (1 or 2 Panes)] + [Splitter + Preview] -->
-        <Grid Grid.Row="3">
+        <!-- Main Workspace: Floating Liquid Glass Sidebar + Main Files Container + Preview Card -->
+        <Grid Grid.Row="3" Margin="8,8,8,6">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="190" MinWidth="140" MaxWidth="300" />
+                <!-- Liquid Glass Sidebar Column -->
+                <ColumnDefinition Width="210" MinWidth="150" MaxWidth="320" />
+                <!-- Main Content Pane(s) Column -->
                 <ColumnDefinition Width="*" MinWidth="350" />
+                <!-- Splitter -->
                 <ColumnDefinition Width="Auto" />
+                <!-- Preview Pane Column -->
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- Column 0: Left Sidebar -->
+            <!-- Column 0: Left Floating Liquid Glass Sidebar -->
             <Border Grid.Column="0" 
-                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" 
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
-                    BorderThickness="0,0,1,0" 
-                    Padding="4">
+                    Background="{DynamicResource GlassSidebarBackground}" 
+                    BorderBrush="{DynamicResource GlassSidebarBorder}" 
+                    BorderThickness="1" 
+                    CornerRadius="14"
+                    BoxShadow="0 6 24 0 #44000000"
+                    Margin="0,0,6,0"
+                    Padding="6,8">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Spacing="8">
+                    <StackPanel Spacing="10">
                         <!-- Bookmarks (Day 11) -->
-                        <Grid ColumnDefinitions="*, Auto" Margin="8,6,8,2">
-                            <TextBlock Grid.Column="0" Text="ЗАКЛАДКИ" FontSize="11" FontWeight="Bold" Foreground="Gray" VerticalAlignment="Center" />
+                        <Grid ColumnDefinitions="*, Auto" Margin="6,2,6,0">
+                            <TextBlock Grid.Column="0" Text="ЗАКЛАДКИ" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                             <Button Grid.Column="1" 
                                     Command="{Binding AddCurrentFolderToBookmarksCommand}" 
                                     ToolTip.Tip="Додати поточну папку в закладки"
                                     Background="Transparent"
                                     BorderThickness="0"
                                     Padding="4,2">
-                                <TextBlock Text="⭐+" FontSize="11" Foreground="#FFD700" />
+                                <TextBlock Text="+" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource AccentBlue}" />
                             </Button>
                         </Grid>
                         <ItemsControl ItemsSource="{Binding BookmarkItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SidebarItemViewModel">
-                                    <Grid ColumnDefinitions="*, Auto" Margin="2,1">
+                                    <Grid ColumnDefinitions="*, Auto" Margin="0,1">
                                         <Button Grid.Column="0" 
                                                 Background="Transparent" 
                                                 HorizontalAlignment="Stretch" 
                                                 HorizontalContentAlignment="Left"
-                                                Padding="8,5"
+                                                Padding="8,6"
+                                                CornerRadius="8"
                                                 Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
                                                 CommandParameter="{Binding Path}"
                                                 ToolTip.Tip="{Binding Path}">
                                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                <Image Source="{Binding IconBitmap}" Width="16" Height="16" VerticalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                                <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Button>
                                         <Button Grid.Column="1" 
                                                 Background="Transparent" 
                                                 BorderThickness="0" 
                                                 Padding="6,4"
+                                                CornerRadius="6"
                                                 Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).RemoveBookmarkCommand, FallbackValue={x:Null}}"
                                                 CommandParameter="{Binding}"
                                                 ToolTip.Tip="Видалити закладку">
-                                            <TextBlock Text="✕" FontSize="10" Foreground="Gray" />
+                                            <TextBlock Text="✕" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                         </Button>
                                     </Grid>
                                 </DataTemplate>
@@ -222,35 +230,38 @@
                         </ItemsControl>
 
                         <!-- Quick Access -->
-                        <TextBlock Text="ШВИДКИЙ ДОСТУП" FontSize="11" FontWeight="Bold" Foreground="Gray" Margin="8,6,8,2" />
+                        <TextBlock Text="ШВИДКИЙ ДОСТУП" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" Margin="6,4,6,0" />
                         <ItemsControl ItemsSource="{Binding QuickAccessItems}">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SidebarItemViewModel">
                                     <Button Background="Transparent" 
                                             HorizontalAlignment="Stretch" 
                                             HorizontalContentAlignment="Left"
-                                            Padding="8,5" Margin="2,1"
+                                            Padding="8,6" Margin="0,1"
+                                            CornerRadius="8"
                                             Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
                                             CommandParameter="{Binding Path}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" />
-                                            <TextBlock Text="{Binding Name}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <Image Source="{Binding IconBitmap}" Width="16" Height="16" VerticalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            <TextBlock Text="{Binding IconGlyph}" FontSize="15" VerticalAlignment="Center" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                            <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimary}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
                                     </Button>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- This PC Header / Button (User Request) -->
+                        <!-- This PC Header / Button -->
                         <Button Background="Transparent" 
                                 HorizontalAlignment="Stretch" 
                                 HorizontalContentAlignment="Left"
-                                Padding="8,6" Margin="2,4,2,2"
+                                Padding="8,6" Margin="0,2,0,0"
+                                CornerRadius="8"
                                 Command="{Binding OpenThisPcCommand}"
                                 ToolTip.Tip="Відкрити огляд дисків та пристроїв (Цей ПК)">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="💻" FontSize="16" VerticalAlignment="Center" />
-                                <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="DodgerBlue" VerticalAlignment="Center" />
+                                <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-workstation-64.png" Width="18" Height="18" VerticalAlignment="Center" />
+                                <TextBlock Text="ЦЕЙ ПК (ДИСКИ)" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentBlue}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
                         <ItemsControl ItemsSource="{Binding DriveSidebarItems}">
@@ -259,14 +270,16 @@
                                     <Button Background="Transparent" 
                                             HorizontalAlignment="Stretch" 
                                             HorizontalContentAlignment="Left"
-                                            Padding="8,5" Margin="2,1"
+                                            Padding="8,6" Margin="0,1"
+                                            CornerRadius="8"
                                             Command="{Binding #MainWindowRoot.((vm:MainViewModel)DataContext).NavigateToPathCommand, FallbackValue={x:Null}}"
                                             CommandParameter="{Binding Path}">
                                         <Grid ColumnDefinitions="Auto, *">
-                                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Image Grid.Column="0" Source="{Binding IconBitmap}" Width="18" Height="18" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                            <TextBlock Grid.Column="0" Text="{Binding IconGlyph}" FontSize="16" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="Gray" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Name}" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="10" Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </Grid>
                                     </Button>
@@ -277,47 +290,64 @@
                 </ScrollViewer>
             </Border>
 
-            <!-- Column 1: Files Area (Single pane or Dual pane) -->
-            <Grid Grid.Column="1">
-                <!-- Single Pane Mode -->
-                <ContentControl IsVisible="{Binding !IsDualPaneMode}">
-                    <views:FilePaneView DataContext="{Binding LeftPane}" />
-                </ContentControl>
+            <!-- Column 1: Files Area Card (Single pane or Dual pane) -->
+            <Border Grid.Column="1" 
+                    Background="{DynamicResource AppPaneBackground}"
+                    BorderBrush="{DynamicResource AppPaneBorder}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    BoxShadow="0 4 16 0 #28000000"
+                    ClipToBounds="True">
+                <Grid>
+                    <!-- Single Pane Mode -->
+                    <ContentControl IsVisible="{Binding !IsDualPaneMode}">
+                        <views:FilePaneView DataContext="{Binding LeftPane}" />
+                    </ContentControl>
 
-                <!-- Dual Pane Mode -->
-                <Grid ColumnDefinitions="*, Auto, *" IsVisible="{Binding IsDualPaneMode}">
-                    <views:FilePaneView Grid.Column="0" DataContext="{Binding LeftPane}" />
-                    <GridSplitter Grid.Column="1" 
-                                  Width="5" 
-                                  Background="{DynamicResource SystemControlForegroundBaseLowBrush}" 
-                                  ResizeDirection="Columns" />
-                    <views:FilePaneView Grid.Column="2" DataContext="{Binding RightPane}" />
+                    <!-- Dual Pane Mode -->
+                    <Grid ColumnDefinitions="*, Auto, *" IsVisible="{Binding IsDualPaneMode}">
+                        <views:FilePaneView Grid.Column="0" DataContext="{Binding LeftPane}" />
+                        <GridSplitter Grid.Column="1" 
+                                      Width="4" 
+                                      Background="{DynamicResource AppPaneBorder}" 
+                                      ResizeDirection="Columns" />
+                        <views:FilePaneView Grid.Column="2" DataContext="{Binding RightPane}" />
+                    </Grid>
                 </Grid>
-            </Grid>
+            </Border>
 
             <!-- Column 2: Splitter between Files and Preview -->
             <GridSplitter Grid.Column="2" 
-                          Width="5" 
-                          Background="{DynamicResource SystemControlForegroundBaseLowBrush}"
+                          Width="6" 
+                          Background="Transparent"
                           IsVisible="{Binding IsPreviewPaneVisible}" 
                           ResizeDirection="Columns" />
 
-            <!-- Column 3: Preview Pane -->
+            <!-- Column 3: Preview Pane Card -->
             <Border Grid.Column="3" 
                     IsVisible="{Binding IsPreviewPaneVisible}"
-                    Width="320" MinWidth="200" MaxWidth="700"
-                    Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}"
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
-                    BorderThickness="1,0,0,0">
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Stretch"
+                    Background="{DynamicResource AppPaneBackground}"
+                    BorderBrush="{DynamicResource AppPaneBorder}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    BoxShadow="0 4 16 0 #28000000"
+                    ClipToBounds="True">
                 
                 <Grid RowDefinitions="Auto, Auto, *, Auto">
                     <!-- Preview Header -->
-                    <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" Padding="10,8" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,0,1">
+                    <Border Grid.Row="0" 
+                            Background="{DynamicResource AppHeaderBackground}" 
+                            Padding="12,10" 
+                            BorderBrush="{DynamicResource AppHeaderBorder}" 
+                            BorderThickness="0,0,0,1">
                         <Grid ColumnDefinitions="Auto, *">
-                            <TextBlock Grid.Column="0" Text="{Binding Preview.IconGlyph}" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0" />
+                            <Image Grid.Column="0" Source="{Binding Preview.IconBitmap}" Width="24" Height="24" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding Preview.IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                            <TextBlock Grid.Column="0" Text="{Binding Preview.IconGlyph}" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding Preview.IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding Preview.Title}" FontWeight="Bold" FontSize="14" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding Preview.FileSizeInfo}" Foreground="Gray" FontSize="12" />
+                                <TextBlock Text="{Binding Preview.Title}" Foreground="{DynamicResource TextPrimary}" FontWeight="Bold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Preview.FileSizeInfo}" Foreground="{DynamicResource TextMuted}" FontSize="11" />
                             </StackPanel>
                         </Grid>
                     </Border>
@@ -330,15 +360,15 @@
                         <!-- Empty State -->
                         <TextBlock Text="Виберіть файл для перегляду"
                                    IsVisible="{Binding Preview.IsEmpty}"
-                                   Foreground="Gray"
+                                   Foreground="{DynamicResource TextMuted}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
 
                         <!-- Folder State -->
                         <StackPanel IsVisible="{Binding Preview.IsFolder}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8">
-                            <TextBlock Text="📁" FontSize="48" HorizontalAlignment="Center" />
-                            <TextBlock Text="Папка файлової системи" FontWeight="SemiBold" HorizontalAlignment="Center" />
-                            <TextBlock Text="{Binding Preview.FilePath}" Foreground="Gray" FontSize="11" TextWrapping="Wrap" MaxWidth="260" HorizontalAlignment="Center" TextAlignment="Center" />
+                            <Image Source="avares://MiniFileExplorer/Assets/Icons/icons8-folder-64.png" Width="64" Height="64" HorizontalAlignment="Center" />
+                            <TextBlock Text="Папка файлової системи" Foreground="{DynamicResource TextPrimary}" FontWeight="SemiBold" HorizontalAlignment="Center" />
+                            <TextBlock Text="{Binding Preview.FilePath}" Foreground="{DynamicResource TextMuted}" FontSize="11" TextWrapping="Wrap" MaxWidth="260" HorizontalAlignment="Center" TextAlignment="Center" />
                         </StackPanel>
 
                         <!-- Text / Code Preview -->
@@ -347,6 +377,7 @@
                                      IsReadOnly="True" 
                                      FontFamily="Consolas, Cascadia Code, Courier New, monospace" 
                                      FontSize="12" 
+                                     Foreground="{DynamicResource TextPrimary}"
                                      Background="Transparent" 
                                      BorderThickness="0" 
                                      TextWrapping="NoWrap" />
@@ -355,39 +386,49 @@
                         <!-- Image Preview -->
                         <Grid IsVisible="{Binding Preview.IsImage}" RowDefinitions="*, Auto">
                             <Image Grid.Row="0" Source="{Binding Preview.ImagePreview}" Stretch="Uniform" />
-                            <TextBlock Grid.Row="1" Text="{Binding Preview.ImageDimensions}" Foreground="Gray" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                            <TextBlock Grid.Row="1" Text="{Binding Preview.ImageDimensions}" Foreground="{DynamicResource TextMuted}" FontSize="12" HorizontalAlignment="Center" Margin="0,6,0,0" />
                         </Grid>
 
                         <!-- Binary / Other File Card -->
-                        <Border IsVisible="{Binding Preview.IsBinary}" VerticalAlignment="Center" HorizontalAlignment="Center" Background="{DynamicResource SystemControlBackgroundAltHighBrush}" CornerRadius="8" Padding="16" MaxWidth="260">
+                        <Border IsVisible="{Binding Preview.IsBinary}" 
+                                VerticalAlignment="Center" 
+                                HorizontalAlignment="Center" 
+                                Background="{DynamicResource AppHeaderBackground}" 
+                                BorderBrush="{DynamicResource AppHeaderBorder}"
+                                BorderThickness="1"
+                                CornerRadius="10" 
+                                Padding="16" 
+                                MaxWidth="260">
                             <StackPanel Spacing="10">
-                                <TextBlock Text="⚙" FontSize="40" HorizontalAlignment="Center" />
-                                <TextBlock Text="{Binding Preview.Title}" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" />
-                                <Separator Height="1" Background="{DynamicResource SystemControlForegroundBaseLowBrush}" />
+                                <Image Source="{Binding Preview.IconBitmap}" Width="48" Height="48" HorizontalAlignment="Center" IsVisible="{Binding Preview.IconBitmap, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                                <TextBlock Text="{Binding Preview.IconGlyph}" FontSize="40" HorizontalAlignment="Center" IsVisible="{Binding Preview.IconBitmap, Converter={x:Static ObjectConverters.IsNull}}" />
+                                <TextBlock Text="{Binding Preview.Title}" Foreground="{DynamicResource TextPrimary}" FontWeight="Bold" TextAlignment="Center" TextWrapping="Wrap" />
+                                <Separator Height="1" Background="{DynamicResource AppHeaderBorder}" />
                                 <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto, Auto">
-                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Розмір: " Foreground="Gray" FontSize="12" />
-                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Preview.FileSizeInfo}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" />
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Змінено: " Foreground="Gray" FontSize="12" Margin="0,4,0,0" />
-                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Preview.ModifiedDateInfo}" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="0" Grid.Column="0" Text="Розмір: " Foreground="{DynamicResource TextMuted}" FontSize="12" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Preview.FileSizeInfo}" Foreground="{DynamicResource TextPrimary}" FontSize="12" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="Змінено: " Foreground="{DynamicResource TextMuted}" FontSize="12" Margin="0,4,0,0" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding Preview.ModifiedDateInfo}" Foreground="{DynamicResource TextPrimary}" FontSize="12" HorizontalAlignment="Right" Margin="0,4,0,0" />
                                 </Grid>
                             </StackPanel>
                         </Border>
                     </Grid>
 
-                    <!-- SHA-256 Hash Checker Panel (Day 11) -->
+                    <!-- Hash Checker Panel -->
                     <Border Grid.Row="3" 
                             IsVisible="{Binding Preview.CanComputeHash}"
-                            Background="{DynamicResource SystemControlBackgroundAltHighBrush}" 
-                            BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" 
+                            Background="{DynamicResource AppHeaderBackground}" 
+                            BorderBrush="{DynamicResource AppHeaderBorder}" 
                             BorderThickness="0,1,0,0" 
-                            Padding="10">
+                            Padding="12,10">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBlock Grid.Column="0" Text="🔒 ХЕШ SHA-256" FontSize="11" FontWeight="Bold" Foreground="Gray" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="0" Text="ХЕШ ФАЙЛУ" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextMuted}" VerticalAlignment="Center" />
                                 <Button Grid.Column="1" 
                                         Command="{Binding Preview.ComputeSha256Command}"
                                         IsEnabled="{Binding !Preview.IsComputingHash}"
                                         Padding="8,3"
+                                        CornerRadius="6"
                                         FontSize="11">
                                     <TextBlock Text="{Binding Preview.IsComputingHash, Converter={x:Null}, FallbackValue='Обчислити'}" />
                                 </Button>
@@ -405,26 +446,29 @@
                                          Text="{Binding Preview.Sha256Hash}" 
                                          IsReadOnly="True" 
                                          FontSize="10" 
+                                         CornerRadius="6"
                                          FontFamily="Consolas, monospace" 
-                                         Padding="4,3" 
+                                         Padding="6,4" 
                                          TextWrapping="Wrap" />
                                 <Button Grid.Column="1" 
                                         Command="{Binding Preview.CopySha256Command}" 
                                         ToolTip.Tip="Скопіювати хеш у буфер"
                                         Margin="4,0,0,0" 
-                                        Padding="6,3">
-                                    <TextBlock Text="📋" FontSize="12" />
+                                        Padding="6,3" 
+                                        CornerRadius="6">
+                                    <TextBlock Text="Копіювати" FontSize="11" />
                                 </Button>
                             </Grid>
 
                             <!-- Hash Verification Input -->
                             <StackPanel Spacing="4" IsVisible="{Binding Preview.Sha256Hash.Length}">
-                                <TextBlock Text="Перевірка хешу (вставте очікуваний):" FontSize="10" Foreground="Gray" />
+                                <TextBlock Text="Перевірка хешу (вставте очікуваний):" FontSize="10" Foreground="{DynamicResource TextMuted}" />
                                 <TextBox Text="{Binding Preview.ExpectedHash, Mode=TwoWay}" 
-                                         PlaceholderText="Очікуваний SHA-256..." 
+                                         PlaceholderText="Очікуваний хеш..." 
                                          FontSize="10" 
+                                         CornerRadius="6"
                                          FontFamily="Consolas, monospace" 
-                                         Padding="4,3" />
+                                         Padding="6,4" />
                             </StackPanel>
 
                             <!-- Verification Message -->
@@ -440,11 +484,15 @@
         </Grid>
 
         <!-- Status Bar -->
-        <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeLowBrush}" BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,1,0,0" Padding="8,4">
+        <Border Grid.Row="4" 
+                Background="{DynamicResource AppToolbarBackground}" 
+                BorderBrush="{DynamicResource AppToolbarBorder}" 
+                BorderThickness="0,1,0,0" 
+                Padding="12,5">
             <Grid ColumnDefinitions="*, Auto, Auto">
-                <TextBlock Grid.Column="0" Text="{Binding ActivePane.StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" />
-                <TextBlock Grid.Column="1" Text="Активна: " Foreground="Gray" Margin="10,0,4,0" IsVisible="{Binding IsDualPaneMode}" />
-                <TextBlock Grid.Column="2" Text="{Binding ActivePane.CurrentPath}" VerticalAlignment="Center" Foreground="Gray" TextTrimming="CharacterEllipsis" MaxWidth="450" />
+                <TextBlock Grid.Column="0" Text="{Binding ActivePane.StatusMessage}" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondary}" />
+                <TextBlock Grid.Column="1" Text="Активна: " Foreground="{DynamicResource TextMuted}" Margin="10,0,4,0" IsVisible="{Binding IsDualPaneMode}" />
+                <TextBlock Grid.Column="2" Text="{Binding ActivePane.CurrentPath}" VerticalAlignment="Center" Foreground="{DynamicResource TextMuted}" TextTrimming="CharacterEllipsis" MaxWidth="450" />
             </Grid>
         </Border>
 
@@ -454,26 +502,26 @@
               IsVisible="{Binding IsModalOpen}"
               HorizontalAlignment="Stretch" 
               VerticalAlignment="Stretch">
-            <Border Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseLowBrush}"
+            <Border Background="{DynamicResource AppPaneBackground}"
+                    BorderBrush="{DynamicResource AppPaneBorder}"
                     BorderThickness="1"
-                    CornerRadius="10"
+                    CornerRadius="14"
                     Padding="24"
                     MaxWidth="460"
                     HorizontalAlignment="Center"
                     VerticalAlignment="Center"
-                    BoxShadow="0 10 30 0 #55000000">
+                    BoxShadow="0 12 36 0 #70000000">
                 <StackPanel Spacing="16">
                     <!-- Modal Header with Icon & Title -->
                     <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <TextBlock Text="{Binding ModalIcon}" FontSize="24" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding ModalTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding ModalTitle}" Foreground="{DynamicResource TextPrimary}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" TextWrapping="Wrap" />
                     </StackPanel>
 
                     <!-- Message Body -->
                     <TextBlock Text="{Binding ModalMessage}" 
                                FontSize="13" 
-                               Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}" 
+                               Foreground="{DynamicResource TextSecondary}" 
                                TextWrapping="Wrap" 
                                LineHeight="18" />
 
@@ -481,6 +529,7 @@
                     <TextBox Text="{Binding ModalInputValue, Mode=TwoWay}"
                              IsVisible="{Binding IsModalInputMode}"
                              FontSize="13"
+                             CornerRadius="8"
                              Padding="8,6"
                              PlaceholderText="Введіть назву..." />
 
@@ -489,11 +538,13 @@
                         <Button Command="{Binding CancelModalCommand}" 
                                 Content="Скасувати" 
                                 Padding="14,6" 
+                                CornerRadius="8"
                                 Background="Transparent" 
                                 BorderThickness="1" />
                         <Button Command="{Binding ConfirmModalCommand}" 
                                 Content="{Binding ModalConfirmButtonText}" 
                                 Padding="16,6"
+                                CornerRadius="8"
                                 FontWeight="SemiBold"
                                 Background="{Binding IsModalDestructive, Converter={x:Null}, FallbackValue=DodgerBlue}"
                                 Classes.destructive="{Binding IsModalDestructive}">

@@ -12,12 +12,19 @@ public partial class FilePaneViewModel
 {
     public Action<FileItemViewModel?>? RequestDelete { get; set; }
     public Action? RequestCreateFolder { get; set; }
+    public Action<FileItemViewModel?>? RequestRename { get; set; }
     public Func<Task>? RequestCopyBetweenPanes { get; set; }
     public Func<Task>? RequestMoveBetweenPanes { get; set; }
     public Action<FileItemViewModel?>? RequestShowProperties { get; set; }
     public Func<FileItemViewModel?, Task>? RequestCopyPath { get; set; }
     public Func<FileItemViewModel?, Task>? RequestComputeSha256 { get; set; }
     public Action<FileItemViewModel?>? RequestBookmark { get; set; }
+
+    [RelayCommand]
+    public void RenameItem(FileItemViewModel? item)
+    {
+        RequestRename?.Invoke(item ?? SelectedItem);
+    }
 
     [RelayCommand]
     public void DeleteItem(FileItemViewModel? item)
